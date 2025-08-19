@@ -8,9 +8,9 @@ define(
         'N/runtime',
         'N/search',
         'N/log',
-        '../../pd-c-netsuite-tools-main/pd_cnt_standard/pd-cnts-search.util.js',
-        '../../pd-c-netsuite-tools-main/pd_cnt_standard/pd-cnts-restlet.util',
-        '../../pd-c-netsuite-tools-main/pd_cnt_common/pd-cntc-common.util.js'
+        '../../pd_c_netsuite_tools/pd_cnt_standard/pd-cnts-search.util.js',
+        '../../pd_c_netsuite_tools/pd_cnt_standard/pd-cnts-restlet.util',
+        '../../pd_c_netsuite_tools/pd_cnt_common/pd-cntc-common.util.js'
     ],
     function (
         runtime,
