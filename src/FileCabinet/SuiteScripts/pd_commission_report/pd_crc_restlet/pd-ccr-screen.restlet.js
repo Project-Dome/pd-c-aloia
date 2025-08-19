@@ -22,6 +22,17 @@ define(
     ) {
 
         const TYPE = 'invoice';
+        
+        const FORMULA = {
+            percent: `{amount}/(({custcol_aae_purchase_order_linked.rate}*{custcol_aae_purchase_order_linked.quantity})+(NVL({item.quantityavailable}, 0)*{custcol_aae_purchase_order_linked.quantity})+{custcol_aae_purchase_order_linked.custbody_aee_freight_cost_vendor}+{custcol_aae_purchase_order_linked.custbody_aae_hazmat_aog_other_fees}+{shippingcost}+{handlingcost})/100`,
+            stockAloia: `NVL({item.quantityavailable}, 0)`,
+            totalCostUSD: `({custcol_aae_purchase_order_linked.rate}*{custcol_aae_purchase_order_linked.quantity})+(NVL({item.quantityavailable}, 0)*{custcol_aae_purchase_order_linked.quantity})+{custcol_aae_purchase_order_linked.custbody_aee_freight_cost_vendor}+{custcol_aae_purchase_order_linked.custbody_aae_hazmat_aog_other_fees}+{shippingcost}+{handlingcost}`,
+            costEAUSD: `(( {custcol_aae_purchase_order_linked.rate} * {custcol_aae_purchase_order_linked.quantity}) + (NVL({item.quantityavailable},0)*{custcol_aae_purchase_order_linked.quantity}) + {custcol_aae_purchase_order_linked.custbody_aee_freight_cost_vendor} + {custcol_aae_purchase_order_linked.custbody_aae_hazmat_aog_other_fees} + {shippingcost} + {handlingcost}) / ({quantity} + NVL({item.quantityavailable},0))`,
+            operationalProfitUSD: `{amount}-(({custcol_aae_purchase_order_linked.rate}*{custcol_aae_purchase_order_linked.quantity})+(NVL({item.quantityavailable}, 0)*{custcol_aae_purchase_order_linked.quantity})+{custcol_aae_purchase_order_linked.custbody_aee_freight_cost_vendor}+{custcol_aae_purchase_order_linked.custbody_aae_hazmat_aog_other_fees}+{shippingcost}+{handlingcost})`,
+            salesCommission: `NVL({applyingtransaction.trandate}, {trandate})+60`,
+            usdCommission: `({amount} - (({custcol_aae_purchase_order_linked.rate}*{custcol_aae_purchase_order_linked.quantity}) + (NVL({item.quantityavailable},0)*{custcol_aae_purchase_order_linked.quantity}) + {custcol_aae_purchase_order_linked.custbody_aee_freight_cost_vendor} + {custcol_aae_purchase_order_linked.custbody_aae_hazmat_aog_other_fees} + {shippingcost} + {handlingcost}))*0.005`
+
+        };
 
         const FIELDS = {
             customer: { name: "mainname" },
@@ -59,17 +70,6 @@ define(
             commission: { name: "salesrep" },
             customerCommissionPercent: { name: "custentity_aae_comission_rates", join: "customer" },
             usdCommission: { name: "formulacurrency", formula: FORMULA.usdCommission }
-        };
-
-        const FORMULA = {
-            percent: `{amount}/(({custcol_aae_purchase_order_linked.rate}*{custcol_aae_purchase_order_linked.quantity})+(NVL({item.quantityavailable}, 0)*{custcol_aae_purchase_order_linked.quantity})+{custcol_aae_purchase_order_linked.custbody_aee_freight_cost_vendor}+{custcol_aae_purchase_order_linked.custbody_aae_hazmat_aog_other_fees}+{shippingcost}+{handlingcost})/100`,
-            stockAloia: `NVL({item.quantityavailable}, 0)`,
-            totalCostUSD: `({custcol_aae_purchase_order_linked.rate}*{custcol_aae_purchase_order_linked.quantity})+(NVL({item.quantityavailable}, 0)*{custcol_aae_purchase_order_linked.quantity})+{custcol_aae_purchase_order_linked.custbody_aee_freight_cost_vendor}+{custcol_aae_purchase_order_linked.custbody_aae_hazmat_aog_other_fees}+{shippingcost}+{handlingcost}`,
-            costEAUSD: `(( {custcol_aae_purchase_order_linked.rate} * {custcol_aae_purchase_order_linked.quantity}) + (NVL({item.quantityavailable},0)*{custcol_aae_purchase_order_linked.quantity}) + {custcol_aae_purchase_order_linked.custbody_aee_freight_cost_vendor} + {custcol_aae_purchase_order_linked.custbody_aae_hazmat_aog_other_fees} + {shippingcost} + {handlingcost}) / ({quantity} + NVL({item.quantityavailable},0))`,
-            operationalProfitUSD: `{amount}-(({custcol_aae_purchase_order_linked.rate}*{custcol_aae_purchase_order_linked.quantity})+(NVL({item.quantityavailable}, 0)*{custcol_aae_purchase_order_linked.quantity})+{custcol_aae_purchase_order_linked.custbody_aee_freight_cost_vendor}+{custcol_aae_purchase_order_linked.custbody_aae_hazmat_aog_other_fees}+{shippingcost}+{handlingcost})`,
-            salesCommission: `NVL({applyingtransaction.trandate}, {trandate})+60`,
-            usdCommission: `({amount} - (({custcol_aae_purchase_order_linked.rate}*{custcol_aae_purchase_order_linked.quantity}) + (NVL({item.quantityavailable},0)*{custcol_aae_purchase_order_linked.quantity}) + {custcol_aae_purchase_order_linked.custbody_aee_freight_cost_vendor} + {custcol_aae_purchase_order_linked.custbody_aae_hazmat_aog_other_fees} + {shippingcost} + {handlingcost}))*0.005`
-
         };
 
         function executeInvoiceReport() {
