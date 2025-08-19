@@ -22,8 +22,6 @@ function loadPartnerTable(options) {
     var _listBody = $('#commission-table');
     var _listBodyContents = '';
 
-    let lucas = 'lucas';
-
     _listBody.children().remove();
 
     _listBodyContents += `
