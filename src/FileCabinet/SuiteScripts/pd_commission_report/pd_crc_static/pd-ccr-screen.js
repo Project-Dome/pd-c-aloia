@@ -23,7 +23,7 @@ function loadPartnerTable(options) {
     var _listBodyContents = '';
 
     _listBody.children().remove();
-
+    let = 0;
     _listBodyContents += `
 
                 <div class="table-responsive">
