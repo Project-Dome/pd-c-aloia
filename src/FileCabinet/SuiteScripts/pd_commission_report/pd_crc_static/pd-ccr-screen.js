@@ -5,7 +5,7 @@ const RESTLET = {
 }
 
 $(document).ready(function () {
-    post({
+    get({
         restlet: RESTLET,
 
         onSucess: function (response) {
@@ -23,7 +23,7 @@ function loadPartnerTable(options) {
     var _listBodyContents = '';
 
     _listBody.children().remove();
-    
+
     _listBodyContents += `
 
                 <div class="table-responsive">
