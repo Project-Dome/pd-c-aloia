@@ -91,6 +91,7 @@ define(
                     results.push(line.toJSON());
                 }
             });
+            log.audit("Invoice Report Results", results);
 
             return { success: true, data: results };
         }
