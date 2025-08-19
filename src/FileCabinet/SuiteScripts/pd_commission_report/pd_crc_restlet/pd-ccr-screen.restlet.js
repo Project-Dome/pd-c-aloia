@@ -22,7 +22,7 @@ define(
     ) {
 
         const TYPE = 'invoice';
-        
+
         const FORMULA = {
             percent: `{amount}/(({custcol_aae_purchase_order_linked.rate}*{custcol_aae_purchase_order_linked.quantity})+(NVL({item.quantityavailable}, 0)*{custcol_aae_purchase_order_linked.quantity})+{custcol_aae_purchase_order_linked.custbody_aee_freight_cost_vendor}+{custcol_aae_purchase_order_linked.custbody_aae_hazmat_aog_other_fees}+{shippingcost}+{handlingcost})/100`,
             stockAloia: `NVL({item.quantityavailable}, 0)`,
@@ -88,7 +88,7 @@ define(
                     ["shipping", "is", "F"]
                 ],
                 each: function (line) {
-                    results.push(line);
+                    results.push(line.toJSON());
                 }
             });
 
