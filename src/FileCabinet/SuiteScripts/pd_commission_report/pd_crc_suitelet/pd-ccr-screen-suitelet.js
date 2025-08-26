@@ -12,8 +12,6 @@ function (record, log, render, format, file, runtime, search, suitelet_util) {
 
     function onRequest(context){
 
-
-
         return suitelet_util.build({
                 context: context,
                 title: 'Relatorio para Comissionamento',

@@ -8,6 +8,7 @@ define(
         'N/runtime',
         'N/search',
         'N/log',
+        'N/url',
         '../../pd_c_netsuite_tools/pd_cnt_standard/pd-cnts-search.util.js',
         '../../pd_c_netsuite_tools/pd_cnt_standard/pd-cnts-restlet.util',
         '../../pd_c_netsuite_tools/pd_cnt_common/pd-cntc-common.util.js'
@@ -16,6 +17,7 @@ define(
         runtime,
         search,
         log,
+        url,
         search_util,
         restlet_util,
         common_util
@@ -33,28 +35,39 @@ define(
             usdCommission: `({amount} - (({custcol_aae_purchase_order_linked.rate}*{custcol_aae_purchase_order_linked.quantity}) + (NVL({item.quantityavailable},0)*{custcol_aae_purchase_order_linked.quantity}) + {custcol_aae_purchase_order_linked.custbody_aee_freight_cost_vendor} + {custcol_aae_purchase_order_linked.custbody_aae_hazmat_aog_other_fees} + {shippingcost} + {handlingcost}))*0.005`
 
         };
-
         const FIELDS = {
-            customer: { name: "mainname" },
+            transactionRecordType: { name: 'recordtype' },
+            transactionId: { name: 'internalid' },
+            tranID: { name: "tranid" },
+            entityid: { name: "entityid", join: "customer" },
+            companyname: { name: "companyname", join: "customer" },
+            customer: { name: "formulatext", formula: "{customer.entityid} || ' ' ||  {customer.companyname}" },
+            customerId: { name: "internalid", join: "customer" },
             custPO: { name: "otherrefnum" },
             soAck: { name: "tranid", join: "createdFrom" },
+            soAckId: { name: "internalid", join: "createdFrom" },
             urgency: { name: "custbody_aae_urgency_order" },
-            buyer: { name: "custbody_aae_buyer" },
+            buyer: { name: "formulatext", formula: "{custbody_aae_buyer.firstname} || ' ' || {custbody_aae_buyer.lastname}" },
+            buyerId: { name: "internalid", join: "custbody_aae_buyer" },
             custPOReceipt: { name: "custbody_aae_cust_po_receipt" },
-            salesAdmin: { name: "salesrep" },
+            salesAdmin: { name: "formulatext", formula: "{salesrep.firstname} || ' ' || {salesrep.lastname}" },
+            salesAdminId: { name: "internalid", join: "salesrep" },
             deliveryDate: { name: "custbody_aae_delivery_date" },
-            partNumber: { name: "item" },
+            partNumber: { name: "itemid", join: "item" },
             description: { name: "salesdescription", join: "item" },
             qty: { name: "quantity" },
             soldEAUSD: { name: "rate" },
-            supplierVendor: { name: "custcol_aae_vendor_purchase_order" },
+            supplierVendor: { name: "companyname", join: "custcol_aae_vendor_purchase_order" },
+            supplierVendorId: { name: "internalid", join: "custcol_aae_vendor_purchase_order" },
             poVendor: { name: "tranid", join: "CUSTCOL_AAE_PURCHASE_ORDER_LINKED" },
+            poVendorId: { name: "internalid", join: "CUSTCOL_AAE_PURCHASE_ORDER_LINKED" },
             vendorPODate: { name: "trandate", join: "CUSTCOL_AAE_PURCHASE_ORDER_LINKED" },
             vendorShipDate: { name: "expectedreceiptdate", join: "CUSTCOL_AAE_PURCHASE_ORDER_LINKED" },
             vendorTerms: { name: "terms", join: "CUSTCOL_AAE_PURCHASE_ORDER_LINKED" },
             stockAloia: { name: "formulanumeric", formula: FORMULA.stockAloia },
             dateINV: { name: "trandate" },
             customerInvoice: { name: "tranid" },
+            customerInvoiceId: { name: "internalid" },
             freightAloiaToCustomer: { name: "shippingcost" },
             freightVendorToAloia: { name: "custbody_aee_freight_cost_vendor", join: "CUSTCOL_AAE_PURCHASE_ORDER_LINKED" },
             bhCost: { name: "handlingcost" },
@@ -67,33 +80,65 @@ define(
             percent: { name: "formulapercent", formula: FORMULA.percent },
             paidByCustomerOn: { name: "trandate", join: "applyingTransaction" },
             salesCommission: { name: "formuladate", formula: FORMULA.salesCommission },
-            commission: { name: "salesrep" },
+            commission: { name: "formulatext", formula: "{salesrep.firstname} || ' ' || {salesrep.lastname}" },
             customerCommissionPercent: { name: "custentity_aae_comission_rates", join: "customer" },
-            usdCommission: { name: "formulacurrency", formula: FORMULA.usdCommission }
+            usdCommission: { name: "formulacurrency", formula: FORMULA.usdCommission },
+            mainLine: { name: "mainline", onlyFilter: true },
+            cogs: { name: "cogs", onlyFilter: true },
+            shipping: { name: "shipping", onlyFilter: true },
+            taxline: { name: "taxline", onlyFilter: true },
+            type: { name: "type", onlyFilter: true },
         };
 
         function executeInvoiceReport() {
-            var results = [];
 
+            var results = [];
             search_util.all({
                 type: TYPE,
                 columns: FIELDS,
-                filters: [
-                    ["type", "anyof", "CustInvc"],
-                    "AND",
-                    ["taxline", "is", "F"],
-                    "AND",
-                    ["mainline", "any", ""],
-                    "AND",
-                    ["shipping", "is", "F"]
-                ],
-                each: function (line) {
-                    results.push(line.toJSON());
+                query: search_util
+                    .where(search_util.query(FIELDS.type, 'anyof', "CustInvc"))
+                    .and(search_util.query(FIELDS.cogs, 'is', "F"))
+                    .and(search_util.query(FIELDS.taxline, 'is', "F"))
+                    .and(search_util.query(FIELDS.shipping, 'is', "F"))
+                    .and(search_util.query(FIELDS.mainLine, 'is', "F"))
+                ,
+                each: function (data) {
+                    let _hasUSDComission = !isNullOrEmpty(data.usdCommission);
+                    if (!_hasUSDComission) return;
+
+                    log.audit("Invoice Data", data);
+
+                    data['transactionUrl'] = buildRecordUrl(data.transactionRecordType, data.transactionId);
+                    
+                    if (data.soAckId) data['soAckUrl'] = buildRecordUrl('salesorder', data.soAckId);
+                    
+                    if (data.buyerId) data['buyerUrl'] = buildRecordUrl('employee', data.buyerId);
+
+                    if (data.salesAdminId) data['salesAdminUrl'] = buildRecordUrl('employee', data.salesAdminId);
+                    
+                    if (data.supplierVendorId) data['supplierVendorUrl'] = buildRecordUrl('vendor', data.supplierVendorId);
+                    
+                    if (data.poVendorId) data['poVendorUrl'] = buildRecordUrl('purchaseorder', data.poVendorId);
+                    
+                    if (data.customerInvoiceId) data['customerInvoiceUrl'] = buildRecordUrl('invoice', data.customerInvoiceId);
+                    
+                    if (data.customerId) data['customerUrl'] = buildRecordUrl('customer', data.customerId);
+
+                    results.push(data);
                 }
-            });
+            })
+
             log.audit("Invoice Report Results", results);
 
             return { success: true, data: results };
+        }
+
+        function buildRecordUrl(recordType, recordId) {
+            return url.resolveRecord({
+                recordType: recordType,
+                recordId: recordId
+            });
         }
 
         function postHandler(context) {

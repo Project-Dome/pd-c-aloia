@@ -1,14 +1,53 @@
-<div class="row">
-    <div class="col-sm-12">
-        <div class="container mt-4">
-            <h2 class="mb-4">Tabela de Vendas</h2>
-            <div class="card-body p-3" id="commission-table">
-                <table class="table table-bordered table-sm" id="support-access-list">
-                    <tr id="table-message">
-                        <td colspan="100"><i class="fa fa-spinner fa-spin"></i>Aguardando tabela </td>
-                    </tr>
-                </table>
+<div class="mt-4">
+    <div class="row">
+        <div class="col-sm-12">
+            <h5>
+                <i class="fa fa-database text-info"></i> Tabela de Relatório de Comissão
+                <a class="btn btn-light btn-sm float-right" href="/app/center/card.nl?sc=-29&amp;whence=">
+                    <i class="fa fa-home text-info"></i> Netsuite Home
+                </a>
+            </h5>
+            <hr>
+        </div>
+    </div>
+
+    <!-- Resultados -->
+    <div class="row mt-4">
+        <div class="col-sm-12">
+            <div class="card shadow-sm">
+
+                <div class="card-header button" data-toggle="collapse" data-target="#filter-container">
+                    <i class="fa fa-filter text-info"></i> Relatório
+                </div>
+
+                <div class="card-body position-relative">
+                    <div id="loading-spinner" class="loading-overlay d-none">
+                        <div class="loading-spinner"></div>
+                    </div>
+                    <div id="commission-table" class="table-responsive">
+                        <table class="table table-sm table-striped table-hover" id="results-table">
+                            <tbody>
+                                <tr>
+                                    <td colspan="100" class="text-center">
+                                        <div class="p-4 bg-light rounded">
+                                            <p class="text-muted mb-0">
+                                                <i class="fa fa-exclamation text-info"></i> Nenhum resultado carregado.
+                                            </p>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <hr>
+
+                    <button type="button" class="btn btn-primary" onclick="approve()">Aprovar</button>
+                    <button type="button" class="btn btn-danger" onclick="reprov()">Reprovar</button>
+
+                </div>
             </div>
+
+
         </div>
     </div>
 </div>

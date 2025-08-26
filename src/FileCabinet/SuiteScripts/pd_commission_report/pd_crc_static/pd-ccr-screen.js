@@ -4,11 +4,19 @@ const RESTLET = {
     deployment: 'customdeploy_pd_ccr_search_comission_rt'
 }
 
-$(document).ready(function () {
-    get({
-        restlet: RESTLET,
+const APPROVE = {
+    script: 'customscript_pd_ccr_approve_comission',
+    deployment: 'customdeploy_pd_ccr_approve_comission_rt'
+}
 
-        onSucess: function (response) {
+$(document).ready(function () {
+    loadComissionReport();
+})
+
+function loadComissionReport() {
+    post({
+        restlet: RESTLET,
+        onSuccess: function (response) {
             if (response.success && response.data) {
                 loadPartnerTable({ page: { data: response.data } });
             } else {
@@ -16,7 +24,7 @@ $(document).ready(function () {
             }
         }
     })
-})
+}
 
 function loadPartnerTable(options) {
     var _listBody = $('#commission-table');
@@ -26,92 +34,104 @@ function loadPartnerTable(options) {
 
     _listBodyContents += `
 
-                <div class="table-responsive">
+                <div class="table-responsive" style="width: 100%; overflow-x: auto;">
                 <table class="table table-striped table-bordered align-middle"
                     style="--bs-table-hover-bg: transparent;">
                     <thead class="table-dark text-center">
                         <tr>
-                            <td style="white-space: nowrap; border-bottom: 2px solid #000;">Customer</td>
-                            <td style="white-space: nowrap; border-bottom: 2px solid #000;">Cust PO</td>
-                            <td style="white-space: nowrap; border-bottom: 2px solid #000;">SO/ACK</td>
-                            <td style="white-space: nowrap; border-bottom: 2px solid #000;">Urgency</td>
-                            <td style="white-space: nowrap; border-bottom: 2px solid #000;">Buyer</td>
-                            <td style="white-space: nowrap; border-bottom: 2px solid #000;">Cust PO Receipt</td>
-                            <td style="white-space: nowrap; border-bottom: 2px solid #000;">Sales ADMIN</td>
-                            <td style="white-space: nowrap; border-bottom: 2px solid #000;">Delivery date</td>
-                            <td style="white-space: nowrap; border-bottom: 2px solid #000;">Part Number</td>
-                            <td style="white-space: nowrap; border-bottom: 2px solid #000;">Description</td>
-                            <td style="white-space: nowrap; border-bottom: 2px solid #000;">QTY</td>
-                            <td style="white-space: nowrap; border-bottom: 2px solid #000;">Sold EA USD</td>
-                            <td style="white-space: nowrap; border-bottom: 2px solid #000;">Supplier/Vendor</td>
-                            <td style="white-space: nowrap; border-bottom: 2px solid #000;">PO Vendor</td>
-                            <td style="white-space: nowrap; border-bottom: 2px solid #000;">Vendor PO Date</td>
-                            <td style="white-space: nowrap; border-bottom: 2px solid #000;">Vendor ship Date</td>
-                            <td style="white-space: nowrap; border-bottom: 2px solid #000;">Vendor Terms</td>
-                            <td style="white-space: nowrap; border-bottom: 2px solid #000;">Stock Aloia</td>
-                            <td style="white-space: nowrap; border-bottom: 2px solid #000;">Date INV</td>
-                            <td style="white-space: nowrap; border-bottom: 2px solid #000;">Customer Invoice</td>
-                            <td style="white-space: nowrap; border-bottom: 2px solid #000;">Freight cost from Aloia to
+                            <td style="white-space: nowrap; border-bottom: 2px solid #000; font-size: 20px">Select</td>
+                            <td style="white-space: nowrap; border-bottom: 2px solid #000; font-size: 20px">Invoice</td>
+                            <td style="white-space: nowrap; border-bottom: 2px solid #000; font-size: 20px">Customer</td>
+                            <td style="white-space: nowrap; border-bottom: 2px solid #000; font-size: 20px">Cust PO</td>
+                            <td style="white-space: nowrap; border-bottom: 2px solid #000; font-size: 20px">SO/ACK</td>
+                            <td style="white-space: nowrap; border-bottom: 2px solid #000; font-size: 20px">Urgency</td>
+                            <td style="white-space: nowrap; border-bottom: 2px solid #000; font-size: 20px">Buyer</td>
+                            <td style="white-space: nowrap; border-bottom: 2px solid #000; font-size: 20px">Cust PO Receipt</td>
+                            <td style="white-space: nowrap; border-bottom: 2px solid #000; font-size: 20px">Sales ADMIN</td>
+                            <td style="white-space: nowrap; border-bottom: 2px solid #000; font-size: 20px">Delivery date</td>
+                            <td style="white-space: nowrap; border-bottom: 2px solid #000; font-size: 20px">Part Number</td>
+                            <td style="white-space: nowrap; border-bottom: 2px solid #000; font-size: 20px">Description</td>
+                            <td style="white-space: nowrap; border-bottom: 2px solid #000; font-size: 20px">QTY</td>
+                            <td style="white-space: nowrap; border-bottom: 2px solid #000; font-size: 20px">Sold EA USD</td>
+                            <td style="white-space: nowrap; border-bottom: 2px solid #000; font-size: 20px">Supplier/Vendor</td>
+                            <td style="white-space: nowrap; border-bottom: 2px solid #000; font-size: 20px">PO Vendor</td>
+                            <td style="white-space: nowrap; border-bottom: 2px solid #000; font-size: 20px">Vendor PO Date</td>
+                            <td style="white-space: nowrap; border-bottom: 2px solid #000; font-size: 20px">Vendor ship Date</td>
+                            <td style="white-space: nowrap; border-bottom: 2px solid #000; font-size: 20px">Vendor Terms</td>
+                            <td style="white-space: nowrap; border-bottom: 2px solid #000; font-size: 20px">Stock Aloia</td>
+                            <td style="white-space: nowrap; border-bottom: 2px solid #000; font-size: 20px">Date INV</td>
+                            <td style="white-space: nowrap; border-bottom: 2px solid #000; font-size: 20px">Customer Invoice</td>
+                            <td style="white-space: nowrap; border-bottom: 2px solid #000; font-size: 20px">Freight cost from Aloia to
                                 customer</td>
-                            <td style="white-space: nowrap; border-bottom: 2px solid #000;">Freight cost from vendor to
+                            <td style="white-space: nowrap; border-bottom: 2px solid #000; font-size: 20px">Freight cost from vendor to
                                 Aloia</td>
-                            <td style="white-space: nowrap; border-bottom: 2px solid #000;">B&H Cost</td>
-                            <td style="white-space: nowrap; border-bottom: 2px solid #000;">Hazmat AOG otder fees</td>
-                            <td style="white-space: nowrap; border-bottom: 2px solid #000;">Unit cost from vendor USD
+                            <td style="white-space: nowrap; border-bottom: 2px solid #000; font-size: 20px">B&H Cost</td>
+                            <td style="white-space: nowrap; border-bottom: 2px solid #000; font-size: 20px">Hazmat AOG otder fees</td>
+                            <td style="white-space: nowrap; border-bottom: 2px solid #000; font-size: 20px">Unit cost from vendor USD
                             </td>
-                            <td style="white-space: nowrap; border-bottom: 2px solid #000;">Total cost USD</td>
-                            <td style="white-space: nowrap; border-bottom: 2px solid #000;">Cost EA USD</td>
-                            <td style="white-space: nowrap; border-bottom: 2px solid #000;">Total sales sold</td>
-                            <td style="white-space: nowrap; border-bottom: 2px solid #000;">Operation profit USD</td>
-                            <td style="white-space: nowrap; border-bottom: 2px solid #000;">%</td>
-                            <td style="white-space: nowrap; border-bottom: 2px solid #000;">Paid by customer on</td>
-                            <td style="white-space: nowrap; border-bottom: 2px solid #000;">Sales commission</td>
-                            <td style="white-space: nowrap; border-bottom: 2px solid #000;">Commission</td>
-                            <td style="white-space: nowrap; border-bottom: 2px solid #000;">% customer commission</td>
-                            <td style="white-space: nowrap; border-bottom: 2px solid #000;">USD commission</td>
+                            <td style="white-space: nowrap; border-bottom: 2px solid #000; font-size: 20px">Total cost USD</td>
+                            <td style="white-space: nowrap; border-bottom: 2px solid #000; font-size: 20px">Cost EA USD</td>
+                            <td style="white-space: nowrap; border-bottom: 2px solid #000; font-size: 20px">Total sales sold</td>
+                            <td style="white-space: nowrap; border-bottom: 2px solid #000; font-size: 20px">Operation profit USD</td>
+                            <td style="white-space: nowrap; border-bottom: 2px solid #000; font-size: 20px">%</td>
+                            <td style="white-space: nowrap; border-bottom: 2px solid #000; font-size: 20px">Paid by customer on</td>
+                            <td style="white-space: nowrap; border-bottom: 2px solid #000; font-size: 20px">Sales commission</td>
+                            <td style="white-space: nowrap; border-bottom: 2px solid #000; font-size: 20px">Commission</td>
+                            <td style="white-space: nowrap; border-bottom: 2px solid #000; font-size: 20px">% customer commission</td>
+                            <td style="white-space: nowrap; border-bottom: 2px solid #000; font-size: 20px">USD commission</td>
                         </tr>
                     </thead>
                     <tbody>
     `;
 
     options.page.data.forEach((lines) => {
+        const tranId = lines.tranID ? `<a target="_blank" href="${lines.transactionUrl}"> ${lines.tranID} </a>` : '-';
+        const soAck = lines.soAck ? `<a target="_blank" href="${lines.soAckUrl}">${lines.soAck}</a>` : '-';
+        const buyer = lines.buyer ? `<a target="_blank" href="${lines.buyerUrl}">${lines.buyer}</a>` : '-';
+        const salesAdmin = lines.salesAdmin ? `<a target="_blank" href="${lines.salesAdminUrl}">${lines.salesAdmin}</a>` : '-';
+        const supplierVendor = lines.supplierVendor ? `<a target="_blank" href="${lines.supplierVendorUrl}">${lines.supplierVendor}</a>` : '-';
+        const poVendor = lines.poVendor ? `<a target="_blank" href="${lines.poVendorUrl}">${lines.poVendor}</a>` : '-';
+        const customerInvoice = lines.customerInvoice ? `<a target="_blank" href="${lines.customerInvoiceUrl}">${lines.customerInvoice}</a>` : '-';
+
         _listBodyContents += `
            <tr>
-                <td>${lines.customer}</td>
-                <td>${lines.custPO}</td>
-                <td>${lines.soAck}</td>
-                <td>${lines.urgency}</td>
-                <td>${lines.buyer}</td>
-                <td>${lines.custPOReceipt}</td>
-                <td>${lines.salesAdmin}</td>
-                <td>${lines.deliveryDate}</td>
-                <td>${lines.partNumber}</td>
-                <td>${lines.description}</td>
-                <td>${lines.qty}</td>
-                <td>${lines.soldEAUSD}</td>
-                <td>${lines.supplierVendor}</td>
-                <td>${lines.poVendor}</td>
-                <td>${lines.vendorPODate}</td>
-                <td>${lines.vendorShipDate}</td>
-                <td>${lines.vendorTerms}</td>
-                <td>${lines.stockAloia}</td>
-                <td>${lines.dateINV}</td>
-                <td>${lines.customerInvoice}</td>
-                <td>${lines.freightAloiaToCustomer}</td>
-                <td>${lines.freightVendorToAloia}</td>
-                <td>${lines.bhCost}</td>
-                <td>${lines.hazmatFees}</td>
-                <td>${lines.unitCostVendorUSD}</td>
-                <td>${lines.totalCostUSD}</td>
-                <td>${lines.costEAUSD}</td>
-                <td>${lines.totalSalesSold}</td>
-                <td>${lines.operationalProfitUSD}</td>
-                <td>${lines.percent}</td>
-                <td>${lines.paidByCustomerOn}</td>
-                <td>${lines.salesCommission}</td>
-                <td>${lines.commission}</td>
-                <td>${lines.customerCommissionPercent}</td>
-                <td>${lines.usdCommission}</td>
+                <td class="text-center"><input type="checkbox" class="approve-check" value="${lines.id}" /></td>
+                <td style="font-size: 15px;">${tranId}</td> 
+                <td style="font-size: 15px;">${lines.customer}</td>
+                <td style="font-size: 15px;">${lines.custPO}</td>
+                <td style="font-size: 15px;">${soAck}</td>
+                <td style="font-size: 15px;">${lines.urgency}</td>
+                <td style="font-size: 15px;">${buyer}</td>
+                <td style="font-size: 15px;">${lines.custPOReceipt}</td>
+                <td style="font-size: 15px;">${salesAdmin}</td>
+                <td style="font-size: 15px;">${lines.deliveryDate}</td>
+                <td style="font-size: 15px;">${lines.partNumber}</td>
+                <td style="font-size: 15px;">${lines.description}</td>
+                <td style="font-size: 15px;">${lines.qty}</td>
+                <td style="font-size: 15px;">${lines.soldEAUSD}</td>
+                <td style="font-size: 15px;">${supplierVendor}</td>
+                <td style="font-size: 15px;">${poVendor}</td>
+                <td style="font-size: 15px;">${lines.vendorPODate}</td>
+                <td style="font-size: 15px;">${lines.vendorShipDate}</td>
+                <td style="font-size: 15px;">${lines.vendorTerms}</td>
+                <td style="font-size: 15px;">${lines.stockAloia}</td>
+                <td style="font-size: 15px;">${lines.dateINV}</td>
+                <td style="font-size: 15px;">${customerInvoice}</td>
+                <td style="font-size: 15px;">${lines.freightAloiaToCustomer}</td>
+                <td style="font-size: 15px;">${lines.freightVendorToAloia}</td>
+                <td style="font-size: 15px;">${lines.bhCost}</td>
+                <td style="font-size: 15px;">${lines.hazmatFees}</td>
+                <td style="font-size: 15px;">${lines.unitCostVendorUSD}</td>
+                <td style="font-size: 15px;">${lines.totalCostUSD}</td>
+                <td style="font-size: 15px;">${Number(lines.costEAUSD).toFixed(2)}</td>
+                <td style="font-size: 15px;">${lines.totalSalesSold}</td>
+                <td style="font-size: 15px;">${lines.operationalProfitUSD}</td>
+                <td style="font-size: 15px;">${lines.percent}</td>
+                <td style="font-size: 15px;">${lines.paidByCustomerOn}</td>
+                <td style="font-size: 15px;">${lines.salesCommission}</td>
+                <td style="font-size: 15px;">${lines.commission}</td>
+                <td style="font-size: 15px;">${lines.customerCommissionPercent}</td>
+                <td style="font-size: 15px;">${lines.usdCommission}</td>
             </tr>
         `;
     });
@@ -123,4 +143,54 @@ function loadPartnerTable(options) {
     `;
 
     _listBody.append(_listBodyContents);
+}
+
+function getSelectedRTs() {
+    let selected = [];
+    $('.approve-check:checked').each(function () {
+        selected.push($(this).val());
+    });
+    return selected;
+}
+
+function approve() {
+    const selected = getSelectedRTs();
+    if (!selected.length) {
+        alert('Selecione pelo menos um registro para aprovar.');
+        return;
+    }
+
+    post({
+        restlet: APPROVE,
+        data: {
+            isApprov: true,
+            records: selected
+        },
+        onSuccess: function (response) {
+            loadComissionReport();
+        }
+    })
+}
+
+function reprov() {
+    const selected = getSelectedRTs();
+    if (!selected.length) {
+        alert('Selecione pelo menos um registro para reprovar.');
+        return;
+    }
+
+    post({
+        restlet: APPROVE,
+        data: {
+            isApprov: false,
+            records: selected
+        },
+        onSuccess: function (response) {
+            if (response?.success) {
+                loadComissionReport();
+            } else {
+                console.error('Erro ao reprovar registros', response);
+            }
+        }
+    })
 }
