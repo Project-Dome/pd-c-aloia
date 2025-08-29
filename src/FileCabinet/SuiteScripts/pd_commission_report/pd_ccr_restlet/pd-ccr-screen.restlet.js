@@ -9,6 +9,7 @@ define(
         'N/search',
         'N/log',
         'N/url',
+        'N/query',
         '../../pd_c_netsuite_tools/pd_cnt_standard/pd-cnts-search.util.js',
         '../../pd_c_netsuite_tools/pd_cnt_standard/pd-cnts-restlet.util',
         '../../pd_c_netsuite_tools/pd_cnt_common/pd-cntc-common.util.js'
@@ -18,6 +19,7 @@ define(
         search,
         log,
         url,
+        query,
         search_util,
         restlet_util,
         common_util
@@ -46,7 +48,7 @@ define(
             custPO: { name: "otherrefnum" },
             soAck: { name: "tranid", join: "createdFrom" },
             soAckId: { name: "internalid", join: "createdFrom" },
-            urgency: { name: "custbody_aae_urgency_order" },
+            urgency: { name: "formulatext", formula: "{custbody_aae_urgency_order}" },
             buyer: { name: "formulatext", formula: "{custbody_aae_buyer.firstname} || ' ' || {custbody_aae_buyer.lastname}" },
             buyerId: { name: "internalid", join: "custbody_aae_buyer" },
             custPOReceipt: { name: "custbody_aae_cust_po_receipt" },
@@ -63,7 +65,7 @@ define(
             poVendorId: { name: "internalid", join: "CUSTCOL_AAE_PURCHASE_ORDER_LINKED" },
             vendorPODate: { name: "trandate", join: "CUSTCOL_AAE_PURCHASE_ORDER_LINKED" },
             vendorShipDate: { name: "expectedreceiptdate", join: "CUSTCOL_AAE_PURCHASE_ORDER_LINKED" },
-            vendorTerms: { name: "terms", join: "CUSTCOL_AAE_PURCHASE_ORDER_LINKED" },
+            vendorTerms: { name: "formulatext", formula:"{CUSTCOL_AAE_PURCHASE_ORDER_LINKED.terms}" },
             stockAloia: { name: "formulanumeric", formula: FORMULA.stockAloia },
             dateINV: { name: "trandate" },
             customerInvoice: { name: "tranid" },
@@ -88,21 +90,23 @@ define(
             shipping: { name: "shipping", onlyFilter: true },
             taxline: { name: "taxline", onlyFilter: true },
             type: { name: "type", onlyFilter: true },
+            status: { name: "custrecord_pd_ccr_status", join: "custrecord_pd_ccr_transaction", onlyFilter: true }
         };
 
         function executeInvoiceReport() {
 
             var results = [];
+            //let _query = buildQuery();
             search_util.all({
                 type: TYPE,
                 columns: FIELDS,
-                query: search_util
-                    .where(search_util.query(FIELDS.type, 'anyof', "CustInvc"))
-                    .and(search_util.query(FIELDS.cogs, 'is', "F"))
-                    .and(search_util.query(FIELDS.taxline, 'is', "F"))
-                    .and(search_util.query(FIELDS.shipping, 'is', "F"))
-                    .and(search_util.query(FIELDS.mainLine, 'is', "F"))
-                ,
+                query:search_util
+                        .where(search_util.query(FIELDS.type, 'anyof', "CustInvc"))
+                        .and(search_util.query(FIELDS.cogs, 'is', "F"))
+                        .and(search_util.query(FIELDS.taxline, 'is', "F"))
+                        .and(search_util.query(FIELDS.shipping, 'is', "F"))
+                        .and(search_util.query(FIELDS.mainLine, 'is', "F"))
+                        .and(search_util.query(FIELDS.status, 'anyof', "3")),
                 each: function (data) {
                     let _hasUSDComission = !isNullOrEmpty(data.usdCommission);
                     if (!_hasUSDComission) return;
@@ -110,19 +114,19 @@ define(
                     log.audit("Invoice Data", data);
 
                     data['transactionUrl'] = buildRecordUrl(data.transactionRecordType, data.transactionId);
-                    
+
                     if (data.soAckId) data['soAckUrl'] = buildRecordUrl('salesorder', data.soAckId);
-                    
+
                     if (data.buyerId) data['buyerUrl'] = buildRecordUrl('employee', data.buyerId);
 
                     if (data.salesAdminId) data['salesAdminUrl'] = buildRecordUrl('employee', data.salesAdminId);
-                    
+
                     if (data.supplierVendorId) data['supplierVendorUrl'] = buildRecordUrl('vendor', data.supplierVendorId);
-                    
+
                     if (data.poVendorId) data['poVendorUrl'] = buildRecordUrl('purchaseorder', data.poVendorId);
-                    
+
                     if (data.customerInvoiceId) data['customerInvoiceUrl'] = buildRecordUrl('invoice', data.customerInvoiceId);
-                    
+
                     if (data.customerId) data['customerUrl'] = buildRecordUrl('customer', data.customerId);
 
                     results.push(data);
@@ -133,6 +137,33 @@ define(
 
             return { success: true, data: results };
         }
+
+        function subLista(){
+            
+        }
+
+        // function buildQuery() {
+        //     return [
+        //         "SELECT",
+        //         "   ap.id AS rtId,",
+        //         "   tl.*",
+        //         "FROM",
+        //         "   transaction",
+        //         "INNER JOIN customrecord_pd_ccr_approval_comission ap",
+        //         "   ON ap.custrecord_pd_ccr_transaction = transaction.id",
+        //         "INNER JOIN transactionline tl",
+        //         "   ON tl.transaction = transaction.id",
+        //         "   AND tl.mainline = 'F'",
+        //         "   AND tl.taxline = 'F'",
+        //         "   AND tl.iscogs = 'F'",
+        //         "   AND tl.itemtype != 'ShipItem'",
+        //         "WHERE",
+        //         "   transaction.recordtype = 'invoice'",
+        //         "   AND ap.custrecord_pd_ccr_status = '3'",
+        //         "   AND ap.custrecord_pd_ccr_transaction = transaction.id",
+        //         "   AND ap.id IS NOT NULL"
+        //     ].join(" ");
+        // }
 
         function buildRecordUrl(recordType, recordId) {
             return url.resolveRecord({

@@ -130,7 +130,7 @@ function loadPartnerTable(options) {
                 <td style="font-size: 15px;">${lines.paidByCustomerOn}</td>
                 <td style="font-size: 15px;">${lines.salesCommission}</td>
                 <td style="font-size: 15px;">${lines.commission}</td>
-                <td style="font-size: 15px;">${lines.customerCommissionPercent}</td>
+                <td style="font-size: 15px;">${lines.customerCommissionPercent}%</td>
                 <td style="font-size: 15px;">${lines.usdCommission}</td>
             </tr>
         `;
