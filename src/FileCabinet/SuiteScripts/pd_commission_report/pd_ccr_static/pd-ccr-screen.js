@@ -32,13 +32,24 @@ function loadPartnerTable(options) {
 
     _listBody.children().remove();
 
-    _listBodyContents += `
+    var invoiceGroups = {};
+    options.page.data.forEach((item) => {
+        var invoiceKey = item.tranID || 'no-invoice';
+        if (!invoiceGroups[invoiceKey]) {
+            invoiceGroups[invoiceKey] = [];
+        }
+        invoiceGroups[invoiceKey].push(item);
+    });
 
+    var invoiceKeys = Object.keys(invoiceGroups);
+
+    _listBodyContents += `
                 <div class="table-responsive" style="width: 100%; overflow-x: auto;">
                 <table class="table table-striped table-bordered align-middle"
                     style="--bs-table-hover-bg: transparent;">
                     <thead class="table-dark text-center">
                         <tr>
+                            <td> </td> 
                             <td style="white-space: nowrap; border-bottom: 2px solid #000; font-size: 20px">Select</td>
                             <td style="white-space: nowrap; border-bottom: 2px solid #000; font-size: 20px">Invoice</td>
                             <td style="white-space: nowrap; border-bottom: 2px solid #000; font-size: 20px">Customer</td>
@@ -84,56 +95,110 @@ function loadPartnerTable(options) {
                     <tbody>
     `;
 
-    options.page.data.forEach((lines) => {
-        const tranId = lines.tranID ? `<a target="_blank" href="${lines.transactionUrl}"> ${lines.tranID} </a>` : '-';
-        const soAck = lines.soAck ? `<a target="_blank" href="${lines.soAckUrl}">${lines.soAck}</a>` : '-';
-        const buyer = lines.buyer ? `<a target="_blank" href="${lines.buyerUrl}">${lines.buyer}</a>` : '-';
-        const salesAdmin = lines.salesAdmin ? `<a target="_blank" href="${lines.salesAdminUrl}">${lines.salesAdmin}</a>` : '-';
-        const supplierVendor = lines.supplierVendor ? `<a target="_blank" href="${lines.supplierVendorUrl}">${lines.supplierVendor}</a>` : '-';
-        const poVendor = lines.poVendor ? `<a target="_blank" href="${lines.poVendorUrl}">${lines.poVendor}</a>` : '-';
-        const customerInvoice = lines.customerInvoice ? `<a target="_blank" href="${lines.customerInvoiceUrl}">${lines.customerInvoice}</a>` : '-';
+    invoiceKeys.forEach((invoiceKey, invoiceIndex) => {
+        var invoiceItems = invoiceGroups[invoiceKey];
+        
+        invoiceItems.forEach((lines, itemIndex) => {
+            const tranId = lines.tranID ? `<a target="_blank" href="${lines.transactionUrl}"> ${lines.tranID} </a>` : '-';
+            const soAck = lines.soAck ? `<a target="_blank" href="${lines.soAckUrl}">${lines.soAck}</a>` : '-';
+            const buyer = lines.buyer ? `<a target="_blank" href="${lines.buyerUrl}">${lines.buyer}</a>` : '-';
+            const salesAdmin = lines.salesAdmin ? `<a target="_blank" href="${lines.salesAdminUrl}">${lines.salesAdmin}</a>` : '-';
+            const supplierVendor = lines.supplierVendor ? `<a target="_blank" href="${lines.supplierVendorUrl}">${lines.supplierVendor}</a>` : '-';
+            const poVendor = lines.poVendor ? `<a target="_blank" href="${lines.poVendorUrl}">${lines.poVendor}</a>` : '-';
+            const customerInvoice = lines.customerInvoice ? `<a target="_blank" href="${lines.customerInvoiceUrl}">${lines.customerInvoice}</a>` : '-';
 
-        _listBodyContents += `
-           <tr>
-                <td class="text-center"><input type="checkbox" class="approve-check" value="${lines.id}" /></td>
-                <td style="font-size: 15px;">${tranId}</td> 
-                <td style="font-size: 15px;">${lines.customer}</td>
-                <td style="font-size: 15px;">${lines.custPO}</td>
-                <td style="font-size: 15px;">${soAck}</td>
-                <td style="font-size: 15px;">${lines.urgency}</td>
-                <td style="font-size: 15px;">${buyer}</td>
-                <td style="font-size: 15px;">${lines.custPOReceipt}</td>
-                <td style="font-size: 15px;">${salesAdmin}</td>
-                <td style="font-size: 15px;">${lines.deliveryDate}</td>
-                <td style="font-size: 15px;">${lines.partNumber}</td>
-                <td style="font-size: 15px;">${lines.description}</td>
-                <td style="font-size: 15px;">${lines.qty}</td>
-                <td style="font-size: 15px;">${lines.soldEAUSD}</td>
-                <td style="font-size: 15px;">${supplierVendor}</td>
-                <td style="font-size: 15px;">${poVendor}</td>
-                <td style="font-size: 15px;">${lines.vendorPODate}</td>
-                <td style="font-size: 15px;">${lines.vendorShipDate}</td>
-                <td style="font-size: 15px;">${lines.vendorTerms}</td>
-                <td style="font-size: 15px;">${lines.stockAloia}</td>
-                <td style="font-size: 15px;">${lines.dateINV}</td>
-                <td style="font-size: 15px;">${customerInvoice}</td>
-                <td style="font-size: 15px;">${lines.freightAloiaToCustomer}</td>
-                <td style="font-size: 15px;">${lines.freightVendorToAloia}</td>
-                <td style="font-size: 15px;">${lines.bhCost}</td>
-                <td style="font-size: 15px;">${lines.hazmatFees}</td>
-                <td style="font-size: 15px;">${lines.unitCostVendorUSD}</td>
-                <td style="font-size: 15px;">${lines.totalCostUSD}</td>
-                <td style="font-size: 15px;">${Number(lines.costEAUSD).toFixed(2)}</td>
-                <td style="font-size: 15px;">${lines.totalSalesSold}</td>
-                <td style="font-size: 15px;">${lines.operationalProfitUSD}</td>
-                <td style="font-size: 15px;">${lines.percent}</td>
-                <td style="font-size: 15px;">${lines.paidByCustomerOn}</td>
-                <td style="font-size: 15px;">${lines.salesCommission}</td>
-                <td style="font-size: 15px;">${lines.commission}</td>
-                <td style="font-size: 15px;">${lines.customerCommissionPercent}%</td>
-                <td style="font-size: 15px;">${lines.usdCommission}</td>
-            </tr>
-        `;
+            if (itemIndex == 0) {
+                _listBodyContents += `
+                   <tr>
+                        <td>
+                            <button class="btn btn-light btn-sm" href="#invoice-container${invoiceIndex}" data-toggle="collapse" role="button" aria-expanded="false" aria-controls="invoice-container${invoiceIndex}"> 
+                                <i class="fa fa-sort" style="font-size:13px"></i>
+                            </button>
+                        </td>
+                        <td class="text-center"><input type="checkbox" class="approve-check" value="${lines.id}" /></td>
+                        <td style="font-size: 15px;">${tranId}</td> 
+                        <td style="font-size: 15px;">${lines.customer}</td>
+                        <td style="font-size: 15px;">${lines.custPO}</td>
+                        <td style="font-size: 15px;">${soAck}</td>
+                        <td style="font-size: 15px;">${lines.urgency}</td>
+                        <td style="font-size: 15px;">${buyer}</td>
+                        <td style="font-size: 15px;">${lines.custPOReceipt}</td>
+                        <td style="font-size: 15px;">${salesAdmin}</td>
+                        <td style="font-size: 15px;">${lines.deliveryDate}</td>
+                        <td style="font-size: 15px;">${lines.partNumber}</td>
+                        <td style="font-size: 15px;">${lines.description}</td>
+                        <td style="font-size: 15px;">${lines.qty}</td>
+                        <td style="font-size: 15px;">${lines.soldEAUSD}</td>
+                        <td style="font-size: 15px;">${supplierVendor}</td>
+                        <td style="font-size: 15px;">${poVendor}</td>
+                        <td style="font-size: 15px;">${lines.vendorPODate}</td>
+                        <td style="font-size: 15px;">${lines.vendorShipDate}</td>
+                        <td style="font-size: 15px;">${lines.vendorTerms}</td>
+                        <td style="font-size: 15px;">${lines.stockAloia}</td>
+                        <td style="font-size: 15px;">${lines.dateINV}</td>
+                        <td style="font-size: 15px;">${customerInvoice}</td>
+                        <td style="font-size: 15px;">${lines.freightAloiaToCustomer}</td>
+                        <td style="font-size: 15px;">${lines.freightVendorToAloia}</td>
+                        <td style="font-size: 15px;">${lines.bhCost}</td>
+                        <td style="font-size: 15px;">${lines.hazmatFees}</td>
+                        <td style="font-size: 15px;">${lines.unitCostVendorUSD}</td>
+                        <td style="font-size: 15px;">${lines.totalCostUSD}</td>
+                        <td style="font-size: 15px;">${Number(lines.costEAUSD).toFixed(2)}</td>
+                        <td style="font-size: 15px;">${lines.totalSalesSold}</td>
+                        <td style="font-size: 15px;">${lines.operationalProfitUSD}</td>
+                        <td style="font-size: 15px;">${lines.percent}</td>
+                        <td style="font-size: 15px;">${lines.paidByCustomerOn}</td>
+                        <td style="font-size: 15px;">${lines.salesCommission}</td>
+                        <td style="font-size: 15px;">${lines.commission}</td>
+                        <td style="font-size: 15px;">${lines.customerCommissionPercent}%</td>
+                        <td style="font-size: 15px;">${lines.usdCommission}</td>
+                    </tr>
+                `;
+            } else {
+                _listBodyContents += `
+                    <tr class="collapse" id="invoice-container${invoiceIndex}">
+                        <td></td>
+                        <td></td>
+                        <td style="font-size: 15px;">${tranId}</td> 
+                        <td style="font-size: 15px;">${lines.customer}</td>
+                        <td style="font-size: 15px;">${lines.custPO}</td>
+                        <td style="font-size: 15px;">${soAck}</td>
+                        <td style="font-size: 15px;">${lines.urgency}</td>
+                        <td style="font-size: 15px;">${buyer}</td>
+                        <td style="font-size: 15px;">${lines.custPOReceipt}</td>
+                        <td style="font-size: 15px;">${salesAdmin}</td>
+                        <td style="font-size: 15px;">${lines.deliveryDate}</td>
+                        <td style="font-size: 15px;">${lines.partNumber}</td>
+                        <td style="font-size: 15px;">${lines.description}</td>
+                        <td style="font-size: 15px;">${lines.qty}</td>
+                        <td style="font-size: 15px;">${lines.soldEAUSD}</td>
+                        <td style="font-size: 15px;">${supplierVendor}</td>
+                        <td style="font-size: 15px;">${poVendor}</td>
+                        <td style="font-size: 15px;">${lines.vendorPODate}</td>
+                        <td style="font-size: 15px;">${lines.vendorShipDate}</td>
+                        <td style="font-size: 15px;">${lines.vendorTerms}</td>
+                        <td style="font-size: 15px;">${lines.stockAloia}</td>
+                        <td style="font-size: 15px;">${lines.dateINV}</td>
+                        <td style="font-size: 15px;">${customerInvoice}</td>
+                        <td style="font-size: 15px;">${lines.freightAloiaToCustomer}</td>
+                        <td style="font-size: 15px;">${lines.freightVendorToAloia}</td>
+                        <td style="font-size: 15px;">${lines.bhCost}</td>
+                        <td style="font-size: 15px;">${lines.hazmatFees}</td>
+                        <td style="font-size: 15px;">${lines.unitCostVendorUSD}</td>
+                        <td style="font-size: 15px;">${lines.totalCostUSD}</td>
+                        <td style="font-size: 15px;">${Number(lines.costEAUSD).toFixed(2)}</td>
+                        <td style="font-size: 15px;">${lines.totalSalesSold}</td>
+                        <td style="font-size: 15px;">${lines.operationalProfitUSD}</td>
+                        <td style="font-size: 15px;">${lines.percent}</td>
+                        <td style="font-size: 15px;">${lines.paidByCustomerOn}</td>
+                        <td style="font-size: 15px;">${lines.salesCommission}</td>
+                        <td style="font-size: 15px;">${lines.commission}</td>
+                        <td style="font-size: 15px;">${lines.customerCommissionPercent}%</td>
+                        <td style="font-size: 15px;">${lines.usdCommission}</td>
+                    </tr>
+                `;
+            }
+        });
     });
 
     _listBodyContents += `

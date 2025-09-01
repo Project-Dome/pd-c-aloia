@@ -138,10 +138,6 @@ define(
             return { success: true, data: results };
         }
 
-        function subLista(){
-            
-        }
-
         // function buildQuery() {
         //     return [
         //         "SELECT",
