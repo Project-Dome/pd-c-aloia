@@ -46,11 +46,11 @@ define(
             customer: { name: "formulatext", formula: "{customer.entityid} || ' ' ||  {customer.companyname}" },
             customerId: { name: "internalid", join: "customer" },
             custPO: { name: "otherrefnum" },
-            soAck: { name: "tranid", join: "createdFrom" },
-            soAckId: { name: "internalid", join: "createdFrom" },
+            soAck: { name: "formulatext", formula: "{createdFrom.tranid}" },
+            soAckId: { name: "formulatext", formula: "{createdFrom.internalid}" },
             urgency: { name: "formulatext", formula: "{custbody_aae_urgency_order}" },
             buyer: { name: "formulatext", formula: "{custbody_aae_buyer.firstname} || ' ' || {custbody_aae_buyer.lastname}" },
-            buyerId: { name: "internalid", join: "custbody_aae_buyer" },
+            buyerId: { name: "formulatext", formula: "{custbody_aae_buyer.internalid}" },
             custPOReceipt: { name: "custbody_aae_cust_po_receipt" },
             salesAdmin: { name: "formulatext", formula: "{salesrep.firstname} || ' ' || {salesrep.lastname}" },
             salesAdminId: { name: "internalid", join: "salesrep" },
@@ -61,26 +61,26 @@ define(
             soldEAUSD: { name: "rate" },
             supplierVendor: { name: "companyname", join: "custcol_aae_vendor_purchase_order" },
             supplierVendorId: { name: "internalid", join: "custcol_aae_vendor_purchase_order" },
-            poVendor: { name: "tranid", join: "CUSTCOL_AAE_PURCHASE_ORDER_LINKED" },
-            poVendorId: { name: "internalid", join: "CUSTCOL_AAE_PURCHASE_ORDER_LINKED" },
-            vendorPODate: { name: "trandate", join: "CUSTCOL_AAE_PURCHASE_ORDER_LINKED" },
-            vendorShipDate: { name: "expectedreceiptdate", join: "CUSTCOL_AAE_PURCHASE_ORDER_LINKED" },
+            poVendor: { name: "formulatext", formula: "{custcol_aae_purchase_order_linked.tranid}" },
+            poVendorId: { name: "formulatext", formula: "{custcol_aae_purchase_order_linked.internalid}" },
+            vendorPODate: { name: "formuladate", formula: "{custcol_aae_purchase_order_linked.trandate}" },
+            vendorShipDate: { name: "formuladate", formula: "{custcol_aae_purchase_order_linked.expectedreceiptdate}" },
             vendorTerms: { name: "formulatext", formula:"{CUSTCOL_AAE_PURCHASE_ORDER_LINKED.terms}" },
             stockAloia: { name: "formulanumeric", formula: FORMULA.stockAloia },
             dateINV: { name: "trandate" },
             customerInvoice: { name: "tranid" },
             customerInvoiceId: { name: "internalid" },
             freightAloiaToCustomer: { name: "shippingcost" },
-            freightVendorToAloia: { name: "custbody_aee_freight_cost_vendor", join: "CUSTCOL_AAE_PURCHASE_ORDER_LINKED" },
+            freightVendorToAloia: { name: "formulanumeric", formula: "{custbody_aee_freight_cost_vendor}" },
             bhCost: { name: "handlingcost" },
-            hazmatFees: { name: "custbody_aae_hazmat_aog_other_fees", join: "CUSTCOL_AAE_PURCHASE_ORDER_LINKED" },
-            unitCostVendorUSD: { name: "rate", join: "CUSTCOL_AAE_PURCHASE_ORDER_LINKED" },
+            hazmatFees: { name: "formulanumeric", formula: "{custbody_aae_hazmat_aog_other_fees}" },
+            unitCostVendorUSD: { name: "rate"},
             totalCostUSD: { name: "formulacurrency", formula: FORMULA.totalCostUSD },
             costEAUSD: { name: "formulanumeric", formula: FORMULA.costEAUSD },
             totalSalesSold: { name: "amount" },
             operationalProfitUSD: { name: "formulacurrency", formula: FORMULA.operationalProfitUSD },
             percent: { name: "formulapercent", formula: FORMULA.percent },
-            paidByCustomerOn: { name: "trandate", join: "applyingTransaction" },
+            paidByCustomerOn: { name: "formuladate", formula: "{applyingtransaction.trandate}" },
             salesCommission: { name: "formuladate", formula: FORMULA.salesCommission },
             commission: { name: "formulatext", formula: "{salesrep.firstname} || ' ' || {salesrep.lastname}" },
             customerCommissionPercent: { name: "custentity_aae_comission_rates", join: "customer" },
@@ -90,7 +90,8 @@ define(
             shipping: { name: "shipping", onlyFilter: true },
             taxline: { name: "taxline", onlyFilter: true },
             type: { name: "type", onlyFilter: true },
-            status: { name: "custrecord_pd_ccr_status", join: "custrecord_pd_ccr_transaction", onlyFilter: true }
+            status: { name: "custrecord_pd_ccr_status", join: "custrecord_pd_ccr_transaction", onlyFilter: true },
+            //amountremaining: { name: "amountremaining", onlyFilter: true }
         };
 
         function executeInvoiceReport() {
@@ -107,6 +108,7 @@ define(
                         .and(search_util.query(FIELDS.shipping, 'is', "F"))
                         .and(search_util.query(FIELDS.mainLine, 'is', "F"))
                         .and(search_util.query(FIELDS.status, 'anyof', "3")),
+                        //.and(search_util.query(FIELDS.amountremaining, 'equalto', "0.00")),
                 each: function (data) {
                     let _hasUSDComission = !isNullOrEmpty(data.usdCommission);
                     if (!_hasUSDComission) return;
