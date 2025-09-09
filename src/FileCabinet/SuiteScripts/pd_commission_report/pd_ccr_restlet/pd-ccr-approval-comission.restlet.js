@@ -71,28 +71,56 @@ define(
 
             const invoiceIds = context.records || [];
             const isApprov = context.isApprov;
+            const userId = runtime.getCurrentUser().id;
 
-            log.audit("Invoice IDs", invoiceIds);
+            if (!invoiceIds.length) {
+                return { success: false, message: 'Nenhum registro selecionado.' };
+            }
+
             const comissionDataList = getComissionByInvoiceId(invoiceIds);
-            log.audit("Comission Data List", comissionDataList);
 
-            if (!invoiceIds.length) return { success: false, message: 'Nenhum registro selecionado.' };
+            let updated = [];
 
             comissionDataList.forEach(comissionData => {
                 let commisionRecord = record.load({
                     type: TYPE,
-                    id: comissionData.rtId
+                    id: comissionData.rtId,
+                    isDynamic: true
                 });
 
-                commisionRecord.setValue({
-                    fieldId: 'custrecord_pd_ccr_status',
-                    value: isApprov ? STATUS_COMISSION.APPROVED : STATUS_COMISSION.REPROVED
-                });
+                if (isApprov) {
+                    commisionRecord.setValue({
+                        fieldId: 'custrecord_pd_ccr_status',
+                        value: STATUS_COMISSION.APPROVED
+                    });
+                    commisionRecord.setValue({
+                        fieldId: 'custrecord_pd_ccr_approver',
+                        value: userId
+                    });
+                    commisionRecord.setValue({
+                        fieldId: 'custrecord_pd_ccr_approval_date',
+                        value: new Date()
+                    });
+                } else {
+                    commisionRecord.setValue({
+                        fieldId: 'custrecord_pd_ccr_status',
+                        value: STATUS_COMISSION.REPROVED
+                    });
+                    commisionRecord.setValue({
+                        fieldId: 'custrecord_pd_ccr_rejector',
+                        value: userId
+                    });
+                    commisionRecord.setValue({
+                        fieldId: 'custrecord_pd_ccr_rejection_date',
+                        value: new Date()
+                    });
+                }
 
                 commisionRecord.save();
+                updated.push(comissionData.rtId);
             });
 
-            return { success: true, updated: invoiceIds };
+            return { success: true, updated };
         }
 
         function getHandler() {
