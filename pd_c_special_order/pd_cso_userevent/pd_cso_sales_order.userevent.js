@@ -151,7 +151,7 @@ define(
                         log.debug({ title: 'afterSubmit - _dontCreateRequisition', details: _dontCreateRequisition });
 
                         const _idSalesOrder = _salesOrderData.id;
-                        const _createPurchaseRequisition = purchase_requisition_service.git(_salesOrderData);
+                        const _createPurchaseRequisition = purchase_requisition_service.createPurchaseRequisition(_salesOrderData);
                         let _updateSalesOrder = sales_order_service.upadtePurchaseRequistion(_idSalesOrder, _createPurchaseRequisition);
 
                         // log.debug(`Linha 65 - afterSubmit - id da sales order: ${_idSalesOrder}.`);
