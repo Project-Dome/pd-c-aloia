@@ -35,6 +35,8 @@ define(
             createdFrom: { name: 'createdfrom' },
             salesOrder: { name: 'custbody_pd_so_sales_order' },
             approvalStatus: { name: 'approvalstatus' },
+            buyer: { name: 'custbody_aae_buyer' },
+            urgencyOrder: { name: 'custbody_aae_urgency_order' },
             calculateTax: { name: 'custbody_ste_use_tax' }
         };
 
