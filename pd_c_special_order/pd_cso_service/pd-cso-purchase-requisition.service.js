@@ -127,17 +127,17 @@ define(
         function createPurchaseRequisition(options) {
             try {
 
-                log.debug({ title: 'Linha 130 - managerData - dados SO', details: options });
+                log.debug({ title: 'Linha 130 - createPurchaseRequisition - dados SO', details: options });
 
                 // const _userObj = runtime.getCurrentUser();
                 const _userId = options.itemList[0].buyerRequisitionPo.id;
 
-                log.debug({ title: 'Linha 135 - id do usuário', details: _userId });
+                log.debug({ title: 'Linha 135 - Sales Rep id', details: options.salesRep });
 
                 let _purchaseRequisitionData = {};
                 let _itemList = [];
 
-                _purchaseRequisitionData[FIELDS.requestor.name] = _userId;
+                _purchaseRequisitionData[FIELDS.requestor.name] = options.salesRep;
                 // _purchaseRequisitionData[FIELDS.receiveBy.name] = '';
                 _purchaseRequisitionData[FIELDS.date.name] = options.trandate;
                 _purchaseRequisitionData[FIELDS.memo.name] = options.memo;
@@ -184,7 +184,7 @@ define(
                 return record_util
                     .handler(_specialRequisitionRecord)
                     .set(_purchaseRequisitionData)
-                    .save({ ignoreMandatoryFields: true })
+                    .save({ ignoreMandatoryFields: false })
 
                 // return 'End of createPurchaseRequisition'
 

@@ -39,6 +39,7 @@ define([
         purchaseRequisition: { name: 'custbody_pd_cso_linked_requistion', type: 'list' },
         // createPurchaseRequisition: { name: 'custbody_pd_so_create_purchase_requis' },
         dontCreateRequisition: { name: 'custbody_pd_cso_dont_create_req' },
+        salesRep: { name: 'salesrep'},
         memo: { name: 'memo' },
     };
 
@@ -273,7 +274,7 @@ define([
 
         return options.every(item => {
             return item?.poVendor?.id &&
-                item?.buyerRequisitionPo?.id &&
+                // item?.buyerRequisitionPo?.id &&
                 item?.estimatedCostPo !== undefined && item?.estimatedCostPo !== "" &&
                 item?.slaPo !== undefined && item?.slaPo !== "";
         });

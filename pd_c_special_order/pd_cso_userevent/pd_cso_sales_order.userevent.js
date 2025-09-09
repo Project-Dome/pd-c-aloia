@@ -52,7 +52,7 @@ define(
                 const _idPurchaseRequisition = _salesOrderData.purchaseRequisition.id;
                 const _hasPurchaseRequisition = !isNullOrEmpty(_idPurchaseRequisition);
 
-                log.debug({ title: `afterSubmit - Dados da sales order`, details: _salesOrderData });
+                log.debug({ title: `beforeLoad - Dados da sales order`, details: _salesOrderData });
 
                 log.debug({ title: 'beforeLoad - _idPurchaseRequisition', details: _idPurchaseRequisition });
                 log.debug({ title: 'beforeLoad - _hasPurchaseRequisition', details: _hasPurchaseRequisition });
@@ -141,6 +141,7 @@ define(
                 // log.debug({ title: 'afterSubmit - _dontCreateRequisition', details: _dontCreateRequisition });
 
                 const _validateItems = sales_order_service.validateItems(_salesOrderData.itemList);
+                log.debug({title: 'afterSubmit - _validateItems', details: _validateItems});
 
                 if (_contextType == context.UserEventType.CREATE) {
 
