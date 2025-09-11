@@ -11,12 +11,10 @@ define(
         'N/log',
         'N/ui/message',
 
-        '../pd_cso_service/pd-cso-sales-order.service',
-        '../pd_cso_service/pd-cso-purchase-requisition.service',
+        '../pd_pow_service/pd-pow-purchase-requisition.service',
 
         '../../pd_c_netsuite_tools/pd_cnt_standard/pd-cnts-search.util.js',
         '../../pd_c_netsuite_tools/pd_cnt_standard/pd-cnts-record.util.js',
-
 
         '../../pd_c_netsuite_tools/pd_cnt_common/pd-cntc-common.util.js'
 
@@ -26,7 +24,7 @@ define(
         log,
         message,
 
-        sales_order_service,
+
         purchase_requisition_service,
 
         search_util,
@@ -34,40 +32,48 @@ define(
 
     ) {
 
-        function beforeLoad(context) {
-
-            try {
-
-            } catch (error) {
-
-                log.error({ title: 'beforeLoad - Erro de processameto ', details: error });
-            }
-
-        }
-
-        function beforeSubmit(context) {
-
-            try {
-
-            } catch (error) {
-                log.error({ title: 'beforeSubmit - Erro de processameto ', details: error });
-            }
-
-        }
-
         function afterSubmit(context) {
 
             try {
-                
+                if (context.type !== context.UserEventType.CREATE && context.type !== context.UserEventType.EDIT) {
+                    return;
+                }
+
+                let _newRecord = context.newRecord;
+                let _idPurchaseRequistion = _newRecord.id;
+
+                // Se já tiver buyer na PR, não reatribui
+                let _existingBuyer = _newRecord.getValue({ fieldId: 'custbody_aae_buyer' });
+                if (_existingBuyer) {
+                    log.debug({
+                        title: 'Linha 49 - afterSubmit - verificação se há comprador',
+                        details: `PR já possui buyer PR: ${_idPurchaseRequistion},  buyer: ${_existingBuyer}`
+                    });
+                    return;
+                }
+
+                // Orquestra o processo central no service
+                let _idBuyer = purchase_requisition_service.assignBuyerToPR(_idPurchaseRequistion);
+
+                if (_idBuyer) {
+                    log.audit({
+                        title: 'Linha 60 - afterSubmit - verificação se há comprador',
+                        details: `Buyer atribuído, PR: ${ _idPurchaseRequistion} --> Buyer: ${_idBuyer}`
+                    });
+                } else {
+                    log.warn({
+                        title: 'Linha 65 - afterSubmit - verificação se há comprador',
+                        details: `Nenhum buyer disponível, PR: ${_idPurchaseRequistion}  permanece sem buyer`
+                    });
+                }
+
             } catch (error) {
-                log.error({ title: 'afterSubmit - Erro de processameto ', details: error });
+                log.error({ title: 'Linha 71 - afterSubmit - Erro de processameto ', details: error });
             }
 
         }
 
         return {
-            beforeLoad: beforeLoad,
-            beforeSubmit: beforeSubmit,
             afterSubmit: afterSubmit
         }
 
