@@ -191,7 +191,7 @@ define(
                 // return 'End of createPurchaseRequisition'
 
             } catch (error) {
-                log.error({ title: 'Linha 192 - createPurchaseRequisition - Erro de processameto ', details: error })
+                log.error({ title: 'Linha 194 - createPurchaseRequisition - Erro de processamento ', details: error })
             }
         }
 
@@ -218,7 +218,7 @@ define(
                 return _diffIndexes;
 
             } catch (error) {
-                log.error({ title: 'Linha 213 - getLineItem - Erro de processameto ', details: error })
+                log.error({ title: 'Linha 221 - getLineItem - Erro de processameto ', details: error })
             }
         }
 
@@ -250,7 +250,7 @@ define(
                 return true;
 
             } catch (error) {
-                log.error({ title: 'Linha 245 - removeLine - Erro de processameto ', details: error })
+                log.error({ title: 'Linha 253 - removeLine - Erro de processameto ', details: error })
             }
 
         }
@@ -272,7 +272,7 @@ define(
                 return _itemsToInsert;
 
             } catch (error) {
-                log.error({ title: 'Linha 267- insertItems - Erro de processameto ', details: error })
+                log.error({ title: 'Linha 275- insertItems - Erro de processameto ', details: error })
             }
 
         }
@@ -360,7 +360,7 @@ define(
                 return _updatedRequistion;
 
             } catch (error) {
-                log.error({ title: 'Linha 347 - insertionLine - Erro de processameto ', details: error })
+                log.error({ title: 'Linha 363 - insertionLine - Erro de processameto ', details: error })
             }
         }
 
@@ -380,7 +380,7 @@ define(
                     );
                 });
             } catch (error) {
-                log.error({ title: 'Linha 375 - hasDifferences - Erro de processameto ', details: error })
+                log.error({ title: 'Linha 383 - hasDifferences - Erro de processameto ', details: error })
             }
         }
 
@@ -406,7 +406,7 @@ define(
                     })
                     .filter(el => el !== null);
             } catch (error) {
-                log.error({ title: 'Linha 401 - changedItemsList - Erro de processameto ', details: error })
+                log.error({ title: 'Linha 409 - changedItemsList - Erro de processameto ', details: error })
             }
 
         }
