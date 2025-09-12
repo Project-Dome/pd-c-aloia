@@ -19,7 +19,6 @@ define(
         '../../pd_c_netsuite_tools/pd_cnt_standard/pd-cnts-search.util.js',
         '../../pd_c_netsuite_tools/pd_cnt_standard/pd-cnts-record.util.js',
 
-
         '../../pd_c_netsuite_tools/pd_cnt_common/pd-cntc-common.util.js'
 
     ],
@@ -53,7 +52,6 @@ define(
                 const _hasPurchaseRequisition = !isNullOrEmpty(_idPurchaseRequisition);
 
                 log.debug({ title: `beforeLoad - Dados da sales order`, details: _salesOrderData });
-
                 log.debug({ title: 'beforeLoad - _idPurchaseRequisition', details: _idPurchaseRequisition });
                 log.debug({ title: 'beforeLoad - _hasPurchaseRequisition', details: _hasPurchaseRequisition });
 
@@ -130,9 +128,9 @@ define(
                         const _createPurchaseRequisition = purchase_requisition_service.createPurchaseRequisition(_salesOrderReload);
                         let _updateSalesOrder = sales_order_service.upadtePurchaseRequistion(_idSalesOrder, _createPurchaseRequisition);
 
-                        log.debug(`Linha 159 - afterSubmit - id da sales order: ${_idSalesOrder}.`);
-                        log.debug({ title: 'Linha 160 - afterSubmit - retorno de script requsição', details: _createPurchaseRequisition });
-                        log.debug({ title: 'Linha 161 - afterSubmit - retorno de atualização S.O.', details: `Sales Order foi atualizada: ${_updateSalesOrder}` });
+                        log.debug(`Linha 131 - afterSubmit - id da sales order: ${_idSalesOrder}.`);
+                        log.debug({ title: 'Linha 132 - afterSubmit - retorno de script requsição', details: _createPurchaseRequisition });
+                        log.debug({ title: 'Linha 133 - afterSubmit - retorno de atualização S.O.', details: `Sales Order foi atualizada: ${_updateSalesOrder}` });
                     }
                 }
 
@@ -140,17 +138,16 @@ define(
 
                     if (_validateItems && (_dontCreateRequisition === false) && (_purchaseRequisition == '')) {
 
-
-                        log.debug({ title: 'Linha 174 - afterSubmit - _validarItens', details: _validateItems });
+                        log.debug({ title: 'Linha 141 - afterSubmit - _validarItens', details: _validateItems });
 
                         const _idSalesOrder = _salesOrderData.id;
                         const _createPurchaseRequisition = purchase_requisition_service.createPurchaseRequisition(_salesOrderData);
                         let _updateSalesOrder = sales_order_service.upadtePurchaseRequistion(_idSalesOrder, _createPurchaseRequisition);
 
                         log.debug({ title: 'afterSubmit - _dontCreateRequisition', details: _dontCreateRequisition });
-                        log.debug(`Linha 192 - afterSubmit - id da sales order: ${_idSalesOrder}.`);
-                        log.debug({ title: 'Linha 193 - afterSubmit - retorno de script requsição', details: _createPurchaseRequisition });
-                        log.debug({ title: 'Linha 194 - afterSubmit - retorno de atualização S.O.', details: `Sales Order foi atualizada: ${_updateSalesOrder}` });
+                        log.debug(`Linha 148 - afterSubmit - id da sales order: ${_idSalesOrder}.`);
+                        log.debug({ title: 'Linha 149 - afterSubmit - retorno de script requsição', details: _createPurchaseRequisition });
+                        log.debug({ title: 'Linha 150 - afterSubmit - retorno de atualização S.O.', details: `Sales Order foi atualizada: ${_updateSalesOrder}` });
 
                         return true;
                     }
