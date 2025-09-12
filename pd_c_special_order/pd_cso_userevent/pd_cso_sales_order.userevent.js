@@ -86,7 +86,7 @@ define(
                 }
 
             } catch (error) {
-                log.error({ title: 'beforeLoad - Erro de processameto ', details: error });
+                log.error({ title: 'beforeLoad - Erro de processamento ', details: error });
 
             }
 
@@ -246,7 +246,7 @@ define(
                 }
 
             } catch (error) {
-                log.error({ title: 'afterSubmit - Erro de processameto ', details: error });
+                log.error({ title: 'afterSubmit - Erro de processamento ', details: error });
             }
 
         }
