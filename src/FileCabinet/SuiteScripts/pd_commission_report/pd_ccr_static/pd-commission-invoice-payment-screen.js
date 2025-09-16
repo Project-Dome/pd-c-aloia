@@ -3,6 +3,11 @@ const RESTLET = {
     deployment: 'customdeploy_pd_ccr_comission_paymt_rt'
 };
 
+VENDOR_BILL = {
+    script: 'customscript_pd_ccr_create_vendor_bill',   // ID real do Restlet
+    deployment: 'customdeploy_pd_ccr_create_vendor_billrt'
+};
+
 $(document).ready(function () {
     loadCommissionData();
 });
@@ -120,21 +125,44 @@ function createCommissionInvoice() {
     const dueDate = $('#due-date').val();
 
     if (!selectedIndexes.length) {
-        alert('Select at least one record to create the invoice.');
+        alert('Select at least one record to create the Vendor Bill.');
         return;
     }
     if (!dueDate) {
-        alert('Please provide the Commission Invoice Due Date.');
+        alert('Please provide the Vendor Bill Due Date.');
         return;
     }
 
-    // Obtemos os registros selecionados do array original
     const selectedRecords = selectedIndexes.map(i => window.commissionData[i]);
+
+    const vendorId = selectedRecords[0].vendorEmployeeId;
+
     console.log('Selected Records:', selectedRecords);
     console.log('Expiration Due Date:', dueDate);
+    console.log('Vendor ID:', vendorId);
 
-    alert('Create invoice function will be implemented in the next step.');
+    post({
+        restlet: VENDOR_BILL,
+        data: {
+            records: selectedRecords,
+            dueDate: dueDate,
+            vendorId: vendorId
+        },
+        onSuccess: function (response) {
+            if (response.success) {
+                loadCommissionData();
+                location.reload();
+            } else {
+                alert(`Erro ao criar Vendor Bill: ${response.message}`);
+            }
+        },
+        onError: function (err) {
+            console.error('Erro na chamada do Restlet VendorBill', err);
+            alert('Erro inesperado ao criar Vendor Bill. Veja o console para mais detalhes.');
+        }
+    });
 }
+
 
 function ifNullOrEmpty(value, defaultValue) {
     return (value === null || value === undefined || value === '') ? defaultValue : value;
