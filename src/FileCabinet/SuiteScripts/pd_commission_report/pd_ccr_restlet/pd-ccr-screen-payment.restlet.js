@@ -50,12 +50,14 @@ define(['N/search', 'N/log'], function (search, log) {
                 log.debug('Page', `Registros na página: ${page.data.length}`);
 
                 page.data.forEach(function (r, idx) {
+                    const vendorEmployeeId = r.getValue(colVendorEmployee);
                     const vendorEmployee = r.getText(colVendorEmployee);
                     const amountValue = parseFloat(r.getValue(colAmountValue)) || 0;
 
                     log.debug('Registro', `#${idx} - vendorEmployee: ${vendorEmployee}, amountValue: ${amountValue}, id: ${r.id}`);
 
                     individualResults.push({
+                        vendorEmployeeId: vendorEmployeeId,
                         vendorEmployee: vendorEmployee,
                         amountValue: amountValue,
                         id: r.id
@@ -78,6 +80,7 @@ define(['N/search', 'N/log'], function (search, log) {
                 
                 groupedResults[vendorKey].totalAmount += item.amountValue;
                 groupedResults[vendorKey].details.push({
+                    vendorEmployeeId: item.vendorEmployeeId,
                     vendorEmployee: item.vendorEmployee,
                     amountValue: item.amountValue,
                     id: item.id,
@@ -91,6 +94,7 @@ define(['N/search', 'N/log'], function (search, log) {
                 
                 // Adicionar o registro do grupo (total)
                 finalResults.push({
+                    vendorEmployeeId: group.details[0].vendorEmployeeId,
                     vendorEmployee: group.vendorEmployee,
                     amountValue: group.totalAmount,
                     isGroup: true,
