@@ -91,7 +91,7 @@ define(
                 // 3) Aplica regras de urgência (bloqueio temporário)
                 let _filtered = applyUrgencyRules(_buyers);
 
-                // 4) Seleciona o buyer pelo menor número de PRs hoje
+                // 4) Seleciona o buyer pelo menor número de PRs no dia
                 let _chosen = pickBuyerByLeastLoad(_filtered);
                 if (!_chosen) {
                     return null;
@@ -135,61 +135,58 @@ define(
 
                 let _buyers = [];
 
-                let _employeeSearch = search.create({
+                let employeeSearchObj = search.create({
                     type: search.Type.EMPLOYEE,
                     filters: [
-                        ['custentity_pd_pow_buyer', 'is', 'T'],
-                        'AND', ['isinactive', 'is', 'F'],
-                        'AND', ['custentity_pd_pow_aae_onleave', 'is', 'F']
+                        ["custentity_pd_pow_buyer", "is", "T"],
+                        "AND",
+                        ["custentity_pd_pow_aae_onleave", "is", "F"],
+                        "AND",
+                        ["isinactive", "is", "F"]
                     ],
                     columns: [
-                        'internalid',
-                        'entityid',
-                        'custentity_pd_pow_prs_assigned_today',
-                        'custentity_pd_pow_shift_start',
-                        'custentity_pd_pow_shift_end'
+                        "internalid",
+                        "entityid",
+                        "custentity_pd_pow_prs_assigned_today",
+                        "custentity_pd_pow_shift_start",
+                        "custentity_pd_pow_shift_end"
                     ]
                 });
 
-                let _paged = _employeeSearch.runPaged({ pageSize: 1000 });
+                // Executa a pesquisa diretamente
+                employeeSearchObj.run().each(function (result) {
+                    let _id = result.getValue("internalid");
+                    let _name = result.getValue("entityid");
+                    let _prsToday = parseInt(result.getValue("custentity_pd_pow_prs_assigned_today")) || 0;
+                    let _shiftStart = result.getValue("custentity_pd_pow_shift_start") || "";
+                    let _shiftEnd = result.getValue("custentity_pd_pow_shift_end") || "";
 
-                _paged.pageRanges.forEach(function (pageRange) {
+                    // Converte horários para minutos
+                    let _startMin = parseTimeToMinutes(_shiftStart);
+                    let _endMin = parseTimeToMinutes(_shiftEnd);
 
-                    let _page = _paged.fetch({ index: pageRange.index });
+                    let _inShift = true;
+                    if (_startMin !== null && _endMin !== null) {
+                        _inShift = isNowInShift(_nowMinutes, _startMin, _endMin);
+                    }
 
-                    _page.data.forEach(function (result) {
+                    if (_inShift) {
+                        _buyers.push({
+                            id: _id,
+                            name: _name,
+                            prsToday: _prsToday,
+                            shiftStartMin: _startMin,
+                            shiftEndMin: _endMin
+                        });
+                    }
 
-                        let _id = result.getValue('internalid');
-                        let _name = result.getValue('entityid');
-                        let _prsToday = parseInt(result.getValue('custentity_pd_pow_prs_assigned_today')) || 0;
-                        let _shiftStart = result.getValue('custentity_pd_pow_shift_start') || '';
-                        let _shiftEnd = result.getValue('custentity_pd_pow_shift_end') || '';
-
-                        let _startMin = parseTimeToMinutes(_shiftStart);
-                        let _endMin = parseTimeToMinutes(_shiftEnd);
-
-                        let _inShift = true;
-
-                        if (_startMin !== null && _endMin !== null) {
-                            _inShift = isNowInShift(_nowMinutes, _startMin, _endMin);
-                        }
-
-                        if (_inShift) {
-                            _buyers.push({
-                                id: _id,
-                                name: _name,
-                                prsToday: _prsToday,
-                                shiftStartMin: _startMin,
-                                shiftEndMin: _endMin
-                            });
-                        }
-                    });
+                    return true; // continua iterando
                 });
 
                 log.debug({
-                    title: 'Linha 190 - getEligibleBuyers - compradores elegíveis',
+                    title: "getEligibleBuyers - compradores elegíveis",
                     details: _buyers
-                })
+                });
 
                 return _buyers;
 

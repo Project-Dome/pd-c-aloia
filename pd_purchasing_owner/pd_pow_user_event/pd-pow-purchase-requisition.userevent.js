@@ -61,7 +61,7 @@ define(
                         details: `Buyer atribuído, PR: ${ _idPurchaseRequistion} --> Buyer: ${_idBuyer}`
                     });
                 } else {
-                    log.warn({
+                    log.debug({
                         title: 'Linha 65 - afterSubmit - verificação se há comprador',
                         details: `Nenhum buyer disponível, PR: ${_idPurchaseRequistion}  permanece sem buyer`
                     });
