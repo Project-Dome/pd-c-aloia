@@ -67,7 +67,9 @@ define([
         units: { name: 'units' },
         poVendorFinal: { name: 'custcol_pd_pow_purchord_vendor', type: 'list' },
         memoLine: { name: 'custcol_pd_memoline' },
-        dontCreateRequisition: { name: 'custcol_pd_cso_dont_create_purchreq' }
+        dontCreateRequisition: { name: 'custcol_pd_cso_dont_create_purchreq' },
+        partNumberCustomer: { name: 'custcol_pd_partnumbercustomer' }
+
     };
 
     function readData(options) {
@@ -92,7 +94,7 @@ define([
             return _invoiceData;
 
         } catch (error) {
-            log.error({ title: 'Linha 80 - readData - error', details: error });
+            log.error({ title: 'Linha 96 - readData - error', details: error });
         }
     }
 
@@ -159,7 +161,7 @@ define([
             return true;
 
         } catch (error) {
-            log.error({ title: 'Linha 137 - updateSalesOrder - error', details: error });
+            log.error({ title: 'Linha 164 - updateSalesOrder - error', details: error });
         }
 
     }
@@ -189,7 +191,7 @@ define([
             return true;
 
         } catch (error) {
-            log.error({ title: 'Linha 149 - upadtePurchaseRequistion - error', details: error });
+            log.error({ title: 'Linha 194 - upadtePurchaseRequistion - error', details: error });
         }
 
     }

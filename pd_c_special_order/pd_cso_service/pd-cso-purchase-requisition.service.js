@@ -56,6 +56,7 @@ define(
             units: { name: 'units' },
             poVendorFinal: { name: 'custcol_pd_pow_purchord_vendor', type: 'list' },
             memoLine: { name: 'custcol_pd_memoline' },
+            partNumberCustomer: {name: 'custcol_pd_partnumbercustomer'}
         };
 
         const APPROVAL_STATUS = 1;  //TODO: 1 = Pending Approval // 2 = Approved
@@ -136,7 +137,7 @@ define(
                 // const _userObj = runtime.getCurrentUser();
                 const _userId = options.itemList[0].buyerRequisitionPo.id;
 
-                log.debug({ title: 'Linha 139 - Sales Rep id', details: options.salesRep });
+                log.debug({ title: 'Linha 140 - Sales Rep id', details: options.salesRep });
 
                 let _purchaseRequisitionData = {};
                 let _itemList = [];
@@ -153,8 +154,8 @@ define(
                 _purchaseRequisitionData[FIELDS.approvalStatus.name] = APPROVAL_STATUS;
 
                 // // _purchaseRequisitionData[FIELDS.calculateTax.name] = '';
-                log.debug({ title: 'Linha 156 - createPurchaseRequisition - Dados de primary information', details: _purchaseRequisitionData });
-                log.debug({ title: 'Linha 157 - createPurchaseRequisition - Dados da sublista item', details: options.itemList });
+                log.debug({ title: 'Linha 157 - createPurchaseRequisition - Dados de primary information', details: _purchaseRequisitionData });
+                log.debug({ title: 'Linha 158 - createPurchaseRequisition - Dados da sublista item', details: options.itemList });
 
                 options.itemList.forEach((item, index) => {
 
@@ -167,20 +168,21 @@ define(
                     _itemData[ITEM_SUBLIST_FIELDS.rate.name] = item.lastPurchasePrice;
                     _itemData[ITEM_SUBLIST_FIELDS.units.name] = item.units;
                     _itemData[ITEM_SUBLIST_FIELDS.memoLine.name] = item.memoLine;
+                    _itemData[ITEM_SUBLIST_FIELDS.partNumberCustomer.name] = item.partNumberCustomer;
                     _itemData[ITEM_SUBLIST_FIELDS.quantity.name] = item.quantity;
                     _itemData[ITEM_SUBLIST_FIELDS.customer.name] = options.customerId;
                     // _itemData[ITEM_SUBLIST_FIELDS.poVendor.name] = item.poVendor.id;
                     _itemList.push(_itemData);
 
-                    log.debug({ title: `Linha 175 - createPurchaseRequisition - sublista item`, details: _itemList });
+                    log.debug({ title: `Linha 177 - createPurchaseRequisition - sublista item`, details: _itemList });
                 });
 
-                log.debug({ title: `Linha 178 - createPurchaseRequisition - sublista item`, details: _itemList });
+                log.debug({ title: `Linha 180 - createPurchaseRequisition - sublista item`, details: _itemList });
 
                 _purchaseRequisitionData.sublists = {};
                 _purchaseRequisitionData.sublists[ITEM_SUBLIST_ID] = _itemList;
 
-                log.debug({ title: 'Linha 183 - createPurchaseRequisition - Dados da requisição de compra', details: _purchaseRequisitionData });
+                log.debug({ title: 'Linha 185 - createPurchaseRequisition - Dados da requisição de compra', details: _purchaseRequisitionData });
 
                 let _specialRequisitionRecord = record.create({
                     type: TYPE,
@@ -195,7 +197,7 @@ define(
                 // return 'End of createPurchaseRequisition'
 
             } catch (error) {
-                log.error({ title: 'Linha 198 - createPurchaseRequisition - Erro de processamento ', details: error })
+                log.error({ title: 'Linha 200 - createPurchaseRequisition - Erro de processamento ', details: error })
             }
         }
 
@@ -222,7 +224,7 @@ define(
                 return _diffIndexes;
 
             } catch (error) {
-                log.error({ title: 'Linha 225 - getLineItem - Erro de processameto ', details: error })
+                log.error({ title: 'Linha 227 - getLineItem - Erro de processameto ', details: error })
             }
         }
 
