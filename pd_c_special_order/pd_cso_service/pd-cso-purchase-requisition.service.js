@@ -48,12 +48,14 @@ define(
             estimatedRate: { name: 'estimatedrate' },
             item: { name: 'item' },
             line: { name: 'line' },
-            linkedOrder: { name: 'linkedorder' },
+            linkedOrder: { name: 'linkedorder', type: 'list' },
             poVendor: { name: 'povendor' },
             quantity: { name: 'quantity' },
             rate: { name: 'rate' },
             lineUniqueKey: { name: 'lineuniquekey' },
-            units: { name: 'units' }
+            units: { name: 'units' },
+            poVendorFinal: { name: 'custcol_pd_pow_purchord_vendor', type: 'list' },
+            memoLine: { name: 'custcol_pd_memoline' },
         };
 
         const APPROVAL_STATUS = 1;  //TODO: 1 = Pending Approval // 2 = Approved
@@ -81,7 +83,7 @@ define(
         function getRequisitionData(idPurchaseRequisition) {
 
             try {
-                log.debug({ title: 'Linha 126 - getRequisitionData - Id Requisition', details: idPurchaseRequisition });
+                log.debug({ title: 'Linha 86 - getRequisitionData - Id Requisition', details: idPurchaseRequisition });
 
                 let _requistionData = record.load({
                     type: TYPE,
@@ -92,7 +94,7 @@ define(
                 return _requistionData;
 
             } catch (error) {
-                log.error({ title: 'Linha 90 - getRequisitionData - Erro de processameto ', details: error })
+                log.error({ title: 'Linha 97 - getRequisitionData - Erro de processameto ', details: error })
             }
         }
 
@@ -100,7 +102,7 @@ define(
             try {
 
                 let _requisitionId = options.id;
-                log.debug({ title: 'Linha 145 - readData - _requisitionId', details: _requisitionId });
+                log.debug({ title: 'Linha 105 - readData - _requisitionId', details: _requisitionId });
 
                 let _requistionData = record_util
                     .handler(options)
@@ -116,12 +118,12 @@ define(
                         }
                     );
 
-                log.debug({ title: 'Linha 114 - readData - _requistionData', details: _requistionData });
+                log.debug({ title: 'Linha 121 - readData - _requistionData', details: _requistionData });
 
                 return _requistionData;
 
             } catch (error) {
-                log.error({ title: 'Linha 119 - readData - error', details: error });
+                log.error({ title: 'Linha 129 - readData - error', details: error });
             }
 
         }
@@ -129,12 +131,12 @@ define(
         function createPurchaseRequisition(options) {
             try {
 
-                log.debug({ title: 'Linha 130 - createPurchaseRequisition - dados SO', details: options });
+                log.debug({ title: 'Linha 134 - createPurchaseRequisition - dados SO', details: options });
 
                 // const _userObj = runtime.getCurrentUser();
                 const _userId = options.itemList[0].buyerRequisitionPo.id;
 
-                log.debug({ title: 'Linha 135 - Sales Rep id', details: options.salesRep });
+                log.debug({ title: 'Linha 139 - Sales Rep id', details: options.salesRep });
 
                 let _purchaseRequisitionData = {};
                 let _itemList = [];
@@ -147,11 +149,12 @@ define(
                 _purchaseRequisitionData[FIELDS.department.name] = options.department;
                 _purchaseRequisitionData[FIELDS.location.name] = options.location;
                 _purchaseRequisitionData[FIELDS.salesOrder.name] = options.id;
+                _purchaseRequisitionData[FIELDS.urgencyOrder.name] = options.urgencyOrder;
                 _purchaseRequisitionData[FIELDS.approvalStatus.name] = APPROVAL_STATUS;
 
                 // // _purchaseRequisitionData[FIELDS.calculateTax.name] = '';
-                log.debug({ title: 'Linha 151 - createPurchaseRequisition - Dados de primary information', details: _purchaseRequisitionData });
-                log.debug({ title: 'Linha 152 - createPurchaseRequisition - Dados da sublista item', details: options.itemList });
+                log.debug({ title: 'Linha 156 - createPurchaseRequisition - Dados de primary information', details: _purchaseRequisitionData });
+                log.debug({ title: 'Linha 157 - createPurchaseRequisition - Dados da sublista item', details: options.itemList });
 
                 options.itemList.forEach((item, index) => {
 
@@ -163,20 +166,21 @@ define(
                     _itemData[ITEM_SUBLIST_FIELDS.estimatedRate.name] = item.lastPurchasePrice;
                     _itemData[ITEM_SUBLIST_FIELDS.rate.name] = item.lastPurchasePrice;
                     _itemData[ITEM_SUBLIST_FIELDS.units.name] = item.units;
+                    _itemData[ITEM_SUBLIST_FIELDS.memoLine.name] = item.memoLine;
                     _itemData[ITEM_SUBLIST_FIELDS.quantity.name] = item.quantity;
                     _itemData[ITEM_SUBLIST_FIELDS.customer.name] = options.customerId;
-                    _itemData[ITEM_SUBLIST_FIELDS.poVendor.name] = item.poVendor.id;
+                    // _itemData[ITEM_SUBLIST_FIELDS.poVendor.name] = item.poVendor.id;
                     _itemList.push(_itemData);
 
-                    log.debug({ title: `Linha 169 - createPurchaseRequisition - sublista item`, details: _itemList });
+                    log.debug({ title: `Linha 175 - createPurchaseRequisition - sublista item`, details: _itemList });
                 });
 
-                log.debug({ title: `Linha 172 - createPurchaseRequisition - sublista item`, details: _itemList });
+                log.debug({ title: `Linha 178 - createPurchaseRequisition - sublista item`, details: _itemList });
 
                 _purchaseRequisitionData.sublists = {};
                 _purchaseRequisitionData.sublists[ITEM_SUBLIST_ID] = _itemList;
 
-                log.debug({ title: 'Linha 177 - createPurchaseRequisition - Dados da requisição de compra', details: _purchaseRequisitionData });
+                log.debug({ title: 'Linha 183 - createPurchaseRequisition - Dados da requisição de compra', details: _purchaseRequisitionData });
 
                 let _specialRequisitionRecord = record.create({
                     type: TYPE,
@@ -191,7 +195,7 @@ define(
                 // return 'End of createPurchaseRequisition'
 
             } catch (error) {
-                log.error({ title: 'Linha 194 - createPurchaseRequisition - Erro de processamento ', details: error })
+                log.error({ title: 'Linha 198 - createPurchaseRequisition - Erro de processamento ', details: error })
             }
         }
 
@@ -218,7 +222,7 @@ define(
                 return _diffIndexes;
 
             } catch (error) {
-                log.error({ title: 'Linha 221 - getLineItem - Erro de processameto ', details: error })
+                log.error({ title: 'Linha 225 - getLineItem - Erro de processameto ', details: error })
             }
         }
 
@@ -250,7 +254,7 @@ define(
                 return true;
 
             } catch (error) {
-                log.error({ title: 'Linha 253 - removeLine - Erro de processameto ', details: error })
+                log.error({ title: 'Linha 257 - removeLine - Erro de processameto ', details: error })
             }
 
         }
@@ -272,7 +276,7 @@ define(
                 return _itemsToInsert;
 
             } catch (error) {
-                log.error({ title: 'Linha 275- insertItems - Erro de processameto ', details: error })
+                log.error({ title: 'Linha 279- insertItems - Erro de processameto ', details: error })
             }
 
         }
@@ -360,7 +364,7 @@ define(
                 return _updatedRequistion;
 
             } catch (error) {
-                log.error({ title: 'Linha 363 - insertionLine - Erro de processameto ', details: error })
+                log.error({ title: 'Linha 367 - insertionLine - Erro de processameto ', details: error })
             }
         }
 
@@ -380,7 +384,7 @@ define(
                     );
                 });
             } catch (error) {
-                log.error({ title: 'Linha 383 - hasDifferences - Erro de processameto ', details: error })
+                log.error({ title: 'Linha 387 - hasDifferences - Erro de processameto ', details: error })
             }
         }
 
@@ -406,7 +410,7 @@ define(
                     })
                     .filter(el => el !== null);
             } catch (error) {
-                log.error({ title: 'Linha 409 - changedItemsList - Erro de processameto ', details: error })
+                log.error({ title: 'Linha 413 - changedItemsList - Erro de processameto ', details: error })
             }
 
         }
@@ -458,7 +462,7 @@ define(
 
                 // return true;
             } catch (error) {
-                log.error({ title: 'Linha 453 - updatedRequistion - Erro de processameto ', details: error })
+                log.error({ title: 'Linha 465 - updatedRequistion - Erro de processameto ', details: error })
             }
 
         }

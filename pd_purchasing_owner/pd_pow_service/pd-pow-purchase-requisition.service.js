@@ -165,9 +165,32 @@ define(
                     let _startMin = parseTimeToMinutes(_shiftStart);
                     let _endMin = parseTimeToMinutes(_shiftEnd);
 
+                    log.debug({
+                        title: 'Linha 169  - getEligibleBuyers - _id e _name',
+                        details:`Id do employee: ${_id} - nome do employee: ${_name}`
+                    });
+                    log.debug({
+                        title: 'Linha 173 - getEligibleBuyers -  _prsToday',
+                        details: `Quantas requisições atribuídas: ${_prsToday}`
+                    });
+                    log.debug({
+                        title: 'Linha 177 - getEligibleBuyers - _startMin',
+                        details: _startMin
+                    });
+                    log.debug({
+                        title: 'Linha 181 - getEligibleBuyers - _endMin',
+                        details: _endMin
+                    });
+                    
                     let _inShift = true;
+                    
                     if (_startMin !== null && _endMin !== null) {
                         _inShift = isNowInShift(_nowMinutes, _startMin, _endMin);
+
+                        log.debug({
+                            title: 'Linha 191 - getEligibleBuyers - _inShift',
+                            details: _inShift
+                        });
                     }
 
                     if (_inShift) {
@@ -193,7 +216,7 @@ define(
             } catch (error) {
 
                 log.error({
-                    title: 'Linha 199- getEligibleBuyers - Erro de processamento ',
+                    title: 'Linha 219- getEligibleBuyers - Erro de processamento ',
                     details: error
                 });
             }

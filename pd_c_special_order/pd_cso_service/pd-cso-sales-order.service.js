@@ -39,8 +39,9 @@ define([
         purchaseRequisition: { name: 'custbody_pd_cso_linked_requistion', type: 'list' },
         // createPurchaseRequisition: { name: 'custbody_pd_so_create_purchase_requis' },
         dontCreateRequisition: { name: 'custbody_pd_cso_dont_create_req' },
-        salesRep: { name: 'salesrep'},
+        salesRep: { name: 'salesrep' },
         memo: { name: 'memo' },
+        urgencyOrder: { name: 'custbody_aae_urgency_order', type: 'list' }
     };
 
     const ITEM_SUBLIST_ID = 'item';
@@ -63,7 +64,10 @@ define([
         slaPo: { name: 'custcol_aae_sla_purchase_order' },
         purchaseOrder: { name: 'custcol_aae_purchaseorder', type: 'list' },
         quantity: { name: 'quantity' },
-        units: { name: 'units' }
+        units: { name: 'units' },
+        poVendorFinal: { name: 'custcol_pd_pow_purchord_vendor', type: 'list' },
+        memoLine: { name: 'custcol_pd_memoline' },
+        dontCreateRequisition: { name: 'custcol_pd_cso_dont_create_purchreq' }
     };
 
     function readData(options) {
