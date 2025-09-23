@@ -11,6 +11,8 @@ define([
     'N/error',
     'N/runtime',
 
+    '../pd_cso_service/pd-cso-purchase-order.service',
+
     '../../pd_c_netsuite_tools/pd_cnt_standard/pd-cnts-search.util.js',
     '../../pd_c_netsuite_tools/pd_cnt_standard/pd-cnts-record.util.js',
 
@@ -21,6 +23,8 @@ define([
     log,
     error,
     runtime,
+
+    purchase_order_service,
 
     search_util,
     record_util
@@ -101,7 +105,7 @@ define([
     function updateSalesOrder(options) {
 
         try {
-            // log.debug({ title: 'updateSalesOrder -  options', details: options });
+            log.debug({ title: 'updateSalesOrder -  options', details: options });
             // log.debug({ title: 'updateSalesOrder - id sales order', details: options.id });
 
             let _objSalesOrder = record.load({
@@ -132,6 +136,8 @@ define([
                     log.debug({ title: 'Valor atual em custcol_aae_purchaseorder', details: _currentValue });
                     log.debug({ title: 'Está vazio?', details: _isEmpty });
 
+                    const _idVendor = purchase_order_service.getVendor(_purchaseOrderLinked)
+
                     // só grava se ainda estiver vazio
                     if (_isEmpty) {
                         _objSalesOrder.setSublistValue({
@@ -141,9 +147,20 @@ define([
                             value: _purchaseOrderLinked
                         });
 
+                        _objSalesOrder.setSublistValue({
+                            sublistId: 'item',
+                            fieldId: 'custcol_pd_pow_purchord_vendor',
+                            line: index,
+                            value: _idVendor
+                        });
+
                         log.debug({
                             title: `Linha ${index} atualizada`,
                             details: `custcol_aae_purchaseorder = ${_purchaseOrderLinked}`
+                        });
+                        log.debug({
+                            title: `Linha ${index} atualizada`,
+                            details: `custcol_pd_pow_purchord_vendor = ${_idVendor}`
                         });
                     } else {
                         log.debug({
@@ -154,9 +171,7 @@ define([
                 }
             });
 
-
             _objSalesOrder.save();
-
 
             return true;
 

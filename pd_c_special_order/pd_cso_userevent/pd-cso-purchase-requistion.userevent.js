@@ -46,8 +46,8 @@ define(
                 const _purchaseRequisitionData = purchase_requisition_service.readData(_cRecord);
                 log.debug({ title: 'beforeLoad - dados da PR', details: _purchaseRequisitionData });
                 log.debug({ title: 'beforeLoad - dados da PR - sub-lista de itens', details: _purchaseRequisitionData.itemList });
-                log.debug({ title: 'beforeLoad - dados da PR - id Purchase Order', details: _purchaseRequisitionData.itemList[0].linkedOrder.id });
-                log.debug({ title: 'beforeLoad - dados da PR - id Purchase Order', details: _purchaseRequisitionData.itemList[1].linkedOrder.id });
+                // log.debug({ title: 'beforeLoad - dados da PR - id Purchase Order', details: _purchaseRequisitionData.itemList[0].linkedOrder.id });
+                // log.debug({ title: 'beforeLoad - dados da PR - id Purchase Order', details: _purchaseRequisitionData.itemList[1].linkedOrder.id });
 
                 // const _idPurchaseOrder1 = _purchaseRequisitionData.itemList[0].linkedOrder;
                 // const _idPurchaseOrder2 = _purchaseRequisitionData.itemList[2].linkedOrder;
@@ -62,10 +62,13 @@ define(
                 // log.debug({ title: 'beforeLoad - dados da SO', details: _salesOrderData });
 
                 const _syncLinkedOrders = sales_order_service.syncLinkedOrders(_purchaseRequisitionData, _salesOrderData);
-                // log.debug({ title: 'beforeLoad - _syncLinkedOrders', details: _syncLinkedOrders });
+                log.debug({ title: 'beforeLoad - _syncLinkedOrders', details: _syncLinkedOrders });
 
                 const _updateSalesOrder = sales_order_service.updateSalesOrder(_syncLinkedOrders)
                 log.debug({ title: 'beforeLoad - _updateSalesOrder', details: _updateSalesOrder });
+                
+                const _updateRequistion = purchase_requisition_service.updateVendor(_purchaseRequisitionData);
+                log.debug({ title: 'beforeLoad - _updateRequistion', details: _updateRequistion });
 
             } catch (error) {
 
@@ -93,14 +96,17 @@ define(
                 const _salesOrderOptions = sales_order_service.getSalesData(_idSalesOrder);
                 const _salesOrderData = sales_order_service.readData(_salesOrderOptions);
 
-                // log.debug({ title: 'afterSubmit - _idSalesOrder', details: _idSalesOrder });           
-                // log.debug({ title: 'afterSubmit - dados da SO', details: _salesOrderData });
+                log.debug({ title: 'afterSubmit - _idSalesOrder', details: _idSalesOrder });           
+                log.debug({ title: 'afterSubmit - dados da SO', details: _salesOrderData });
 
                 const _syncLinkedOrders = sales_order_service.syncLinkedOrders(_purchaseRequisitionData, _salesOrderData);
-                // log.debug({ title: 'afterSubmit - _syncLinkedOrders', details: _syncLinkedOrders });
+                log.debug({ title: 'afterSubmit - _syncLinkedOrders', details: _syncLinkedOrders });
 
                 const _updateSalesOrder = sales_order_service.updateSalesOrder(_syncLinkedOrders)
                 log.debug({ title: 'afterSubmit - _updateSalesOrder', details: _updateSalesOrder });
+
+                const _updateRequistion = purchase_requisition_service.updateVendor(_purchaseRequisitionData);
+                log.debug({ title: 'beforeLoad - _updateRequistion', details: _updateRequistion });
 
             } catch (error) {
                 log.error({ title: 'afterSubmit - Erro de processameto ', details: error });

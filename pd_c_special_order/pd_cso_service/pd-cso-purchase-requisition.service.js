@@ -9,6 +9,8 @@ define(
         'N/record',
         'N/runtime',
 
+        '../pd_cso_service/pd-cso-purchase-order.service',
+
         '../../pd_c_netsuite_tools/pd_cnt_standard/pd-cnts-search.util.js',
         '../../pd_c_netsuite_tools/pd_cnt_standard/pd-cnts-record.util.js',
 
@@ -19,6 +21,8 @@ define(
             log,
             record,
             runtime,
+
+            purchase_order_service,
 
             search_util,
             record_util
@@ -48,7 +52,7 @@ define(
             estimatedRate: { name: 'estimatedrate' },
             item: { name: 'item' },
             line: { name: 'line' },
-            linkedOrder: { name: 'linkedorder', type: 'list' },
+            linkedOrder: { name: 'linkedorder' },
             poVendor: { name: 'povendor' },
             quantity: { name: 'quantity' },
             rate: { name: 'rate' },
@@ -56,7 +60,9 @@ define(
             units: { name: 'units' },
             poVendorFinal: { name: 'custcol_pd_pow_purchord_vendor', type: 'list' },
             memoLine: { name: 'custcol_pd_memoline' },
-            partNumberCustomer: {name: 'custcol_pd_partnumbercustomer'}
+            partNumberCustomer: { name: 'custcol_pd_partnumbercustomer' },
+            estimatedCostPo: { name: 'custcol_aae_estimated_cost_po' }
+
         };
 
         const APPROVAL_STATUS = 1;  //TODO: 1 = Pending Approval // 2 = Approved
@@ -162,9 +168,16 @@ define(
                     log.debug({ title: `índice: ${index}`, details: item });
                     let _itemData = {};
 
+                    let _dontCreateRequisition = item.dontCreateRequisition;
+                    log.debug({ title: 'Linha 168 - createPurchaseRequisition - Dados da sublista item', details: _dontCreateRequisition });
+
+                    if (_dontCreateRequisition == true) {
+                        return true;
+                    }
+
                     _itemData[ITEM_SUBLIST_FIELDS.item.name] = item.item.id;
-                    _itemData[ITEM_SUBLIST_FIELDS.estimatedAmount.name] = item.estimatedCostPo;
-                    _itemData[ITEM_SUBLIST_FIELDS.estimatedRate.name] = item.lastPurchasePrice;
+                    _itemData[ITEM_SUBLIST_FIELDS.estimatedCostPo.name] = item.estimatedCostPo;
+                    _itemData[ITEM_SUBLIST_FIELDS.estimatedRate.name] = item.estimatedCostPo;
                     _itemData[ITEM_SUBLIST_FIELDS.rate.name] = item.lastPurchasePrice;
                     _itemData[ITEM_SUBLIST_FIELDS.units.name] = item.units;
                     _itemData[ITEM_SUBLIST_FIELDS.memoLine.name] = item.memoLine;
@@ -174,15 +187,15 @@ define(
                     // _itemData[ITEM_SUBLIST_FIELDS.poVendor.name] = item.poVendor.id;
                     _itemList.push(_itemData);
 
-                    log.debug({ title: `Linha 177 - createPurchaseRequisition - sublista item`, details: _itemList });
+                    log.debug({ title: `Linha 186 - createPurchaseRequisition - sublista item`, details: _itemList });
                 });
 
-                log.debug({ title: `Linha 180 - createPurchaseRequisition - sublista item`, details: _itemList });
+                log.debug({ title: `Linha 189 - createPurchaseRequisition - sublista item`, details: _itemList });
 
                 _purchaseRequisitionData.sublists = {};
                 _purchaseRequisitionData.sublists[ITEM_SUBLIST_ID] = _itemList;
 
-                log.debug({ title: 'Linha 185 - createPurchaseRequisition - Dados da requisição de compra', details: _purchaseRequisitionData });
+                log.debug({ title: 'Linha 194 - createPurchaseRequisition - Dados da requisição de compra', details: _purchaseRequisitionData });
 
                 let _specialRequisitionRecord = record.create({
                     type: TYPE,
@@ -197,7 +210,7 @@ define(
                 // return 'End of createPurchaseRequisition'
 
             } catch (error) {
-                log.error({ title: 'Linha 200 - createPurchaseRequisition - Erro de processamento ', details: error })
+                log.error({ title: 'Linha 209 - createPurchaseRequisition - Erro de processamento ', details: error })
             }
         }
 
@@ -469,6 +482,51 @@ define(
 
         }
 
+        function updateVendor(options) {
+
+            let _objPurchReq = record.load({
+                type: TYPE,
+                id: options.id,
+                isDynamic: false,
+            });
+
+            log.debug({
+                title: 'Linha 490 - updateVendor - options',
+                details: options
+            });
+
+            options.itemList.forEach((item, index) => {
+
+                log.debug({
+                    title: 'Linha 497 - updateVendor - itemList',
+                    details: `Index: ${index} --> Id PO: ${item.linkedOrder} --> id PR: ${options.id}`
+                });
+
+                const _hasPurchaseOrderLinked = !isNullOrEmpty(item.linkedOrder);
+
+                if (_hasPurchaseOrderLinked) {
+
+                    const _idVendor = purchase_order_service.getVendor(item.linkedOrder)
+
+                    log.debug({ title: 'Linha 511 - updateVendor - _hasPurchaseOrderLinked', details: _hasPurchaseOrderLinked });
+                    log.debug({ title: 'Linha 512 - updateVendor - _idVendor', details: _idVendor });
+
+                    _objPurchReq.setSublistValue({
+                        sublistId: 'item',
+                        fieldId: 'custcol_pd_pow_purchord_vendor',
+                        line: index,
+                        value: _idVendor
+                    });
+                }
+
+            });
+
+            _objPurchReq.save();
+            
+            return `Purchase Requisition #${options.id} foi atualizada.`;
+
+        }
+
         return {
             changedItemsList: changedItemsList,
             createPurchaseRequisition: createPurchaseRequisition,
@@ -480,6 +538,7 @@ define(
             insertionLine: insertionLine,
             readData: readData,
             removeLine: removeLine,
-            updatedRequistion: updatedRequistion
+            updatedRequistion: updatedRequistion,
+            updateVendor: updateVendor
         }
     });
