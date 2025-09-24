@@ -10,16 +10,15 @@ define(['N/ui/message', 'N/runtime'], function (message, runtime) {
 
     let _originalLineValues = {};
 
- 
+
     function isAdmin() {
         let _roleId = runtime.getCurrentUser().role;
         return _roleId === 3;
     }
 
-
     function lineInit(context) {
         if (context.sublistId !== 'item') {
-            return;
+            return true;
         }
 
         // if (isAdmin()) {
@@ -40,7 +39,7 @@ define(['N/ui/message', 'N/runtime'], function (message, runtime) {
 
     function fieldChanged(context) {
         if (context.sublistId !== 'item') {
-            return;
+            return true;
         }
 
         // if (isAdmin()) {
@@ -76,6 +75,8 @@ define(['N/ui/message', 'N/runtime'], function (message, runtime) {
                 alert('This field cannot be changed because the line is linked to a Purchase Order.');
             }
         }
+
+        return true;
     }
 
 

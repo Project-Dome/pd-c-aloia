@@ -11,6 +11,8 @@ define([
     'N/error',
     'N/runtime',
 
+    '../pd_cso_service/pd-cso-purchase-order.service',
+
     '../../pd_c_netsuite_tools/pd_cnt_standard/pd-cnts-search.util.js',
     '../../pd_c_netsuite_tools/pd_cnt_standard/pd-cnts-record.util.js',
 
@@ -21,6 +23,8 @@ define([
     log,
     error,
     runtime,
+
+    purchase_order_service,
 
     search_util,
     record_util
@@ -39,8 +43,9 @@ define([
         purchaseRequisition: { name: 'custbody_pd_cso_linked_requistion', type: 'list' },
         // createPurchaseRequisition: { name: 'custbody_pd_so_create_purchase_requis' },
         dontCreateRequisition: { name: 'custbody_pd_cso_dont_create_req' },
-        salesRep: { name: 'salesrep'},
+        salesRep: { name: 'salesrep' },
         memo: { name: 'memo' },
+        urgencyOrder: { name: 'custbody_aae_urgency_order', type: 'list' }
     };
 
     const ITEM_SUBLIST_ID = 'item';
@@ -63,7 +68,12 @@ define([
         slaPo: { name: 'custcol_aae_sla_purchase_order' },
         purchaseOrder: { name: 'custcol_aae_purchaseorder', type: 'list' },
         quantity: { name: 'quantity' },
-        units: { name: 'units' }
+        units: { name: 'units' },
+        poVendorFinal: { name: 'custcol_pd_pow_purchord_vendor', type: 'list' },
+        memoLine: { name: 'custcol_pd_memoline' },
+        dontCreateRequisition: { name: 'custcol_pd_cso_dont_create_purchreq' },
+        partNumberCustomer: { name: 'custcol_pd_partnumbercustomer' }
+
     };
 
     function readData(options) {
@@ -88,14 +98,14 @@ define([
             return _invoiceData;
 
         } catch (error) {
-            log.error({ title: 'Linha 80 - readData - error', details: error });
+            log.error({ title: 'Linha 96 - readData - error', details: error });
         }
     }
 
     function updateSalesOrder(options) {
 
         try {
-            // log.debug({ title: 'updateSalesOrder -  options', details: options });
+            log.debug({ title: 'updateSalesOrder -  options', details: options });
             // log.debug({ title: 'updateSalesOrder - id sales order', details: options.id });
 
             let _objSalesOrder = record.load({
@@ -126,6 +136,8 @@ define([
                     log.debug({ title: 'Valor atual em custcol_aae_purchaseorder', details: _currentValue });
                     log.debug({ title: 'Está vazio?', details: _isEmpty });
 
+                    const _idVendor = purchase_order_service.getVendor(_purchaseOrderLinked)
+
                     // só grava se ainda estiver vazio
                     if (_isEmpty) {
                         _objSalesOrder.setSublistValue({
@@ -135,9 +147,20 @@ define([
                             value: _purchaseOrderLinked
                         });
 
+                        _objSalesOrder.setSublistValue({
+                            sublistId: 'item',
+                            fieldId: 'custcol_pd_pow_purchord_vendor',
+                            line: index,
+                            value: _idVendor
+                        });
+
                         log.debug({
                             title: `Linha ${index} atualizada`,
                             details: `custcol_aae_purchaseorder = ${_purchaseOrderLinked}`
+                        });
+                        log.debug({
+                            title: `Linha ${index} atualizada`,
+                            details: `custcol_pd_pow_purchord_vendor = ${_idVendor}`
                         });
                     } else {
                         log.debug({
@@ -148,14 +171,12 @@ define([
                 }
             });
 
-
             _objSalesOrder.save();
-
 
             return true;
 
         } catch (error) {
-            log.error({ title: 'Linha 137 - updateSalesOrder - error', details: error });
+            log.error({ title: 'Linha 164 - updateSalesOrder - error', details: error });
         }
 
     }
@@ -185,7 +206,7 @@ define([
             return true;
 
         } catch (error) {
-            log.error({ title: 'Linha 149 - upadtePurchaseRequistion - error', details: error });
+            log.error({ title: 'Linha 194 - upadtePurchaseRequistion - error', details: error });
         }
 
     }
