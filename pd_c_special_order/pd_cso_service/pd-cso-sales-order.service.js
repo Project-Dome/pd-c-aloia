@@ -105,7 +105,7 @@ define([
     function updateSalesOrder(options) {
 
         try {
-            log.debug({ title: 'updateSalesOrder -  options', details: options });
+            //log.debug({ title: 'updateSalesOrder -  options', details: options });
             // log.debug({ title: 'updateSalesOrder - id sales order', details: options.id });
 
             let _objSalesOrder = record.load({
@@ -121,8 +121,8 @@ define([
                 if (_hasPurchaseOrderLinked) {
                     const _purchaseOrderLinked = line.purchaseOrderLinked;
 
-                    log.debug({ title: 'Índice da linha', details: index });
-                    log.debug({ title: 'purchaseOrderLinked recebido', details: _purchaseOrderLinked });
+                    //log.debug({ title: 'Índice da linha', details: index });
+                    //log.debug({ title: 'purchaseOrderLinked recebido', details: _purchaseOrderLinked });
 
                     // lê o valor atual da coluna custcol_aae_purchaseorder na Sales Order
                     let _currentValue = _objSalesOrder.getSublistValue({
@@ -133,8 +133,8 @@ define([
 
                     const _isEmpty = isNullOrEmpty(_currentValue);
 
-                    log.debug({ title: 'Valor atual em custcol_aae_purchaseorder', details: _currentValue });
-                    log.debug({ title: 'Está vazio?', details: _isEmpty });
+                    //log.debug({ title: 'Valor atual em custcol_aae_purchaseorder', details: _currentValue });
+                    //log.debug({ title: 'Está vazio?', details: _isEmpty });
 
                     const _idVendor = purchase_order_service.getVendor(_purchaseOrderLinked)
 
@@ -154,19 +154,19 @@ define([
                             value: _idVendor
                         });
 
-                        log.debug({
+                        /*log.debug({
                             title: `Linha ${index} atualizada`,
                             details: `custcol_aae_purchaseorder = ${_purchaseOrderLinked}`
                         });
                         log.debug({
                             title: `Linha ${index} atualizada`,
                             details: `custcol_pd_pow_purchord_vendor = ${_idVendor}`
-                        });
+                        });*/
                     } else {
-                        log.debug({
+                        /*log.debug({
                             title: `Linha ${index} não alterada`,
                             details: `já existe valor em custcol_aae_purchaseorder (${_currentValue})`
-                        });
+                        });*/
                     }
                 }
             });
@@ -185,11 +185,11 @@ define([
 
         try {
 
-            log.debug({
+            /*log.debug({
                 title: 'upadtePurchaseRequistion - Valores de atualização',
                 details: `id da Sales Order: ${idSalesOrder} 
                 id da Requisition: ${idPurchaseRequisition}.`
-            });
+            });*/
 
             let _salesOrderObj = record.load({
                 type: TYPE,
@@ -215,7 +215,7 @@ define([
     function getSalesData(idSalesOrder) {
 
         try {
-            log.debug({ title: ' getSalesData - Id Requisition', details: idSalesOrder });
+            //log.debug({ title: ' getSalesData - Id Requisition', details: idSalesOrder });
 
             let _salesOrderData = record.load({
                 type: TYPE,
@@ -251,8 +251,8 @@ define([
                 }
             });
 
-            log.debug({ title: 'syncLinkedOrders - dados moficados na sales order', details: `id sales order: ${salesOrderData.id} ` });
-            log.debug({ title: 'syncLinkedOrders - lista de itens moficada na sales order', details: salesOrderData.itemList });
+            //log.debug({ title: 'syncLinkedOrders - dados moficados na sales order', details: `id sales order: ${salesOrderData.id} ` });
+            //log.debug({ title: 'syncLinkedOrders - lista de itens moficada na sales order', details: salesOrderData.itemList });
 
             return salesOrderData;
 
