@@ -72,11 +72,6 @@ define(['N/search', 'N/log', 'N/url'], function (search, log, url) {
                 });
             });
 
-            log.debug({
-                title: 'individualResults',
-                details: JSON.stringify(individualResults)
-            });
-
             const groupedResults = {};
             individualResults.forEach(function (item) {
                 const vendorKey = item.vendorEmployee || 'no-vendor';
