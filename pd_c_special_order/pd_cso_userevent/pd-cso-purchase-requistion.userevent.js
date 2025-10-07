@@ -1,122 +1,108 @@
-/**
+/** 
  * @NApiVersion     2.1
  * @NScriptType     UserEventScript
  * @NModuleScope    SameAccount
- * @author          Project Dome - Rogério Gonçalves Rodrigues
+ * @author
  */
 
-define(
-    [
-        'N/record',
-        'N/log',
-        'N/ui/message',
+define([
+    'N/record',
+    'N/log',
+    'N/ui/message',
 
-        '../pd_cso_service/pd-cso-sales-order.service',
-        '../pd_cso_service/pd-cso-purchase-requisition.service',
-        '../pd_cso_service/pd-cso-purchase-order.service',
+    '../pd_cso_service/pd-cso-sales-order.service',
+    '../pd_cso_service/pd-cso-purchase-requisition.service',
+    '../pd_cso_service/pd-cso-purchase-order.service',
 
-        '../../pd_c_netsuite_tools/pd_cnt_standard/pd-cnts-search.util.js',
-        '../../pd_c_netsuite_tools/pd_cnt_standard/pd-cnts-record.util.js',
+    '../../pd_c_netsuite_tools/pd_cnt_standard/pd-cnts-search.util.js',
+    '../../pd_c_netsuite_tools/pd_cnt_standard/pd-cnts-record.util.js',
+    '../../pd_c_netsuite_tools/pd_cnt_common/pd-cntc-common.util.js'
+], function (
+    record,
+    log,
+    message,
 
+    sales_order_service,
+    purchase_requisition_service,
+    purchase_order_service,
 
-        '../../pd_c_netsuite_tools/pd_cnt_common/pd-cntc-common.util.js'
+    search_util,
+    record_util
+) {
 
-    ],
-    function (
-        record,
-        log,
-        message,
+    function beforeLoad(context) {
+        try {
+            const _contextType = context.type;
+            const _cRecord = context.newRecord;
 
-        sales_order_service,
-        purchase_requisition_service,
-        purchase_order_service,
+            log.debug({ title: 'beforeLoad - Tipo de contexto', details: _contextType });
 
+            if (_contextType === context.UserEventType.CREATE) {
+                log.debug({ title: 'beforeLoad - Ação CREATE detectada', details: _cRecord.id });
 
-        search_util,
-        record_util
-
-    ) {
-
-        function beforeLoad(context) {
-
-            try {
-
-                const _contextType = context.type;
-                const _cRecord = context.newRecord;
                 const _purchaseRequisitionData = purchase_requisition_service.readData(_cRecord);
-                log.debug({ title: 'beforeLoad - dados da PR', details: _purchaseRequisitionData });
-                log.debug({ title: 'beforeLoad - dados da PR - sub-lista de itens', details: _purchaseRequisitionData.itemList });
-                // log.debug({ title: 'beforeLoad - dados da PR - id Purchase Order', details: _purchaseRequisitionData.itemList[0].linkedOrder.id });
-                // log.debug({ title: 'beforeLoad - dados da PR - id Purchase Order', details: _purchaseRequisitionData.itemList[1].linkedOrder.id });
+                log.debug({ title: 'beforeLoad - Dados da Requisição', details: JSON.stringify(_purchaseRequisitionData) });
 
-                // const _idPurchaseOrder1 = _purchaseRequisitionData.itemList[0].linkedOrder;
-                // const _idPurchaseOrder2 = _purchaseRequisitionData.itemList[2].linkedOrder;
+                const _idSalesOrder = _purchaseRequisitionData && _purchaseRequisitionData.salesOrder;
+                log.debug({ title: 'beforeLoad - ID da Sales Order vinculada', details: _idSalesOrder });
 
-                // log.debug({ title: 'beforeLoad - _idPurchaseOrder1', details: _idPurchaseOrder1 });           
-                // log.debug({ title: 'beforeLoad - _idPurchaseOrder2', details: _idPurchaseOrder2 }); 
+                if (!_idSalesOrder) {
+                    log.debug({ title: 'beforeLoad - Nenhuma Sales Order vinculada, encerrando função', details: null });
+                    return;
+                }
 
-                const _idSalesOrder = _purchaseRequisitionData.salesOrder;
                 const _salesOrderOptions = sales_order_service.getSalesData(_idSalesOrder);
+                log.debug({ title: 'beforeLoad - Opções da Sales Order', details: JSON.stringify(_salesOrderOptions) });
+
                 const _salesOrderData = sales_order_service.readData(_salesOrderOptions);
-                // log.debug({ title: 'beforeLoad - _idSalesOrder', details: _idSalesOrder });           
-                // log.debug({ title: 'beforeLoad - dados da SO', details: _salesOrderData });
+                log.debug({ title: 'beforeLoad - Dados da Sales Order', details: JSON.stringify(_salesOrderData) });
 
-                const _syncLinkedOrders = sales_order_service.syncLinkedOrders(_purchaseRequisitionData, _salesOrderData);
-                log.debug({ title: 'beforeLoad - _syncLinkedOrders', details: _syncLinkedOrders });
-
-                const _updateSalesOrder = sales_order_service.updateSalesOrder(_syncLinkedOrders)
-                log.debug({ title: 'beforeLoad - _updateSalesOrder', details: _updateSalesOrder });
-                
-                const _updateRequistion = purchase_requisition_service.updateVendor(_purchaseRequisitionData);
-                log.debug({ title: 'beforeLoad - _updateRequistion', details: _updateRequistion });
-
-            } catch (error) {
-
-                log.error({ title: 'beforeLoad - Erro de processameto ', details: error });
+                return;
             }
 
+        } catch (error) {
+            log.error({ title: 'beforeLoad - Erro de processamento', details: error });
         }
+    }
 
-        function afterSubmit(context) {
+    function afterSubmit(context) {
+        try {
+            const _cRecord = context.newRecord;
+            log.debug({ title: 'afterSubmit - Registro submetido', details: _cRecord.id });
 
-            try {
+            const _purchaseRequisitionData = purchase_requisition_service.readData(_cRecord);
+            log.debug({ title: 'afterSubmit - Dados da Requisição', details: JSON.stringify(_purchaseRequisitionData) });
 
-                const _contextType = context.type;
-                const _cRecord = context.newRecord;
-                const _purchaseRequisitionData = purchase_requisition_service.readData(_cRecord);
-                // log.debug({ title: 'afterSubmit - dados da PR', details: _purchaseRequisitionData });
+            const _idSalesOrder = _purchaseRequisitionData && _purchaseRequisitionData.salesOrder;
+            log.debug({ title: 'afterSubmit - ID da Sales Order vinculada', details: _idSalesOrder });
 
-                // const _idPurchaseOrder1 = _purchaseRequisitionData.itemList[0].linkedOrder;
-                // const _idPurchaseOrder2 = _purchaseRequisitionData.itemList[2].linkedOrder;
-
-                // log.debug({ title: 'afterSubmit - _idPurchaseOrder1', details: _idPurchaseOrder1 });           
-                // log.debug({ title: 'afterSubmit - _idPurchaseOrder2', details: _idPurchaseOrder2 }); 
-
-                const _idSalesOrder = _purchaseRequisitionData.salesOrder;
-                const _salesOrderOptions = sales_order_service.getSalesData(_idSalesOrder);
-                const _salesOrderData = sales_order_service.readData(_salesOrderOptions);
-
-                log.debug({ title: 'afterSubmit - _idSalesOrder', details: _idSalesOrder });           
-                log.debug({ title: 'afterSubmit - dados da SO', details: _salesOrderData });
-
-                const _syncLinkedOrders = sales_order_service.syncLinkedOrders(_purchaseRequisitionData, _salesOrderData);
-                log.debug({ title: 'afterSubmit - _syncLinkedOrders', details: _syncLinkedOrders });
-
-                const _updateSalesOrder = sales_order_service.updateSalesOrder(_syncLinkedOrders)
-                log.debug({ title: 'afterSubmit - _updateSalesOrder', details: _updateSalesOrder });
-
-                const _updateRequistion = purchase_requisition_service.updateVendor(_purchaseRequisitionData);
-                log.debug({ title: 'beforeLoad - _updateRequistion', details: _updateRequistion });
-
-            } catch (error) {
-                log.error({ title: 'afterSubmit - Erro de processameto ', details: error });
+            if (!_idSalesOrder) {
+                log.debug({ title: 'afterSubmit - Nenhuma Sales Order vinculada, encerrando função', details: null });
+                return;
             }
 
-        }
+            const _salesOrderOptions = sales_order_service.getSalesData(_idSalesOrder);
+            log.debug({ title: 'afterSubmit - Opções da Sales Order', details: JSON.stringify(_salesOrderOptions) });
 
-        return {
-            beforeLoad: beforeLoad,
-            afterSubmit: afterSubmit
-        }
+            const _salesOrderData = sales_order_service.readData(_salesOrderOptions);
+            log.debug({ title: 'afterSubmit - Dados da Sales Order', details: JSON.stringify(_salesOrderData) });
 
-    })
+            const _syncLinkedOrders = sales_order_service.syncLinkedOrders(_purchaseRequisitionData, _salesOrderData);
+            log.debug({ title: 'afterSubmit - Resultado do syncLinkedOrders', details: JSON.stringify(_syncLinkedOrders) });
+
+            const _updateSalesOrder = sales_order_service.updateSalesOrder(_syncLinkedOrders);
+            log.debug({ title: 'afterSubmit - Resultado do updateSalesOrder', details: JSON.stringify(_updateSalesOrder) });
+
+            const _updateRequistion = purchase_requisition_service.updateVendor(_purchaseRequisitionData);
+            log.debug({ title: 'afterSubmit - Resultado do updateVendor', details: JSON.stringify(_updateRequistion) });
+
+        } catch (error) {
+            log.error({ title: 'afterSubmit - Erro de processamento', details: error });
+        }
+    }
+
+    return {
+        beforeLoad: beforeLoad,
+        afterSubmit: afterSubmit
+    };
+});

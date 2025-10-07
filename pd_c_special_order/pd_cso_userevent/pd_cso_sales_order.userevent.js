@@ -132,8 +132,6 @@ define(
                         log.debug({ title: 'Linha 132 - afterSubmit - retorno de script requsição', details: _createPurchaseRequisition });
                         log.debug({ title: 'Linha 133 - afterSubmit - retorno de atualização S.O.', details: `Sales Order foi atualizada: ${_updateSalesOrder}` });
                     }
-
-                    return;
                 }
 
                 if (_contextType == context.UserEventType.EDIT) {
@@ -169,7 +167,7 @@ define(
 
                             throw `The Purchase Requisition has now been fully met!`
 
-                        } else if (_purchaseRequisitionData === 'Rejected' ) {
+                        } else if (_purchaseRequisitionData === 'Rejected') {
 
                             throw `The Purchase Requisition is Rejected!`
 
