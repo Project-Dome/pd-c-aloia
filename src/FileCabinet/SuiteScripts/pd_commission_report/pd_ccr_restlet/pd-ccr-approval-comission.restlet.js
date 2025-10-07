@@ -69,22 +69,13 @@ define(
         function updateCommissionStatus(context) {
             log.audit("Update Commission Status Context", context);
 
-            const invoiceIds = context.records || [];
             const isApprov = context.isApprov;
             const userId = runtime.getCurrentUser().id;
 
-            if (!invoiceIds.length) {
-                return { success: false, message: 'Nenhum registro selecionado.' };
-            }
-
-            const comissionDataList = getComissionByInvoiceId(invoiceIds);
-
-            let updated = [];
-
-            comissionDataList.forEach(comissionData => {
+            context.records.forEach(commissionId => {
                 let commisionRecord = record.load({
                     type: TYPE,
-                    id: comissionData.rtId,
+                    id: commissionId,
                     isDynamic: true
                 });
 
@@ -117,10 +108,9 @@ define(
                 }
 
                 commisionRecord.save();
-                updated.push(comissionData.rtId);
             });
 
-            return { success: true, updated };
+            return { success: true };
         }
 
         function getHandler() {

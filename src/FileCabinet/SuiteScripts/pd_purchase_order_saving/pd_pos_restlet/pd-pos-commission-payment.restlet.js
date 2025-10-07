@@ -64,6 +64,11 @@ define(
                     }
                 });
 
+                // vendorBillRecord.setValue({
+                //     fieldId: 'custbody_ste_use_tax',
+                //     value: true,
+                // })
+
                 let vendorBillId = vendor_bill_service.save(vendorBillRecord);
                 log.audit({ title: 'vendorBillId', details: vendorBillId });
 
@@ -73,7 +78,6 @@ define(
                         vendorBill: vendorBillId
                     })
                 })
-
             });
 
             return { success: true }

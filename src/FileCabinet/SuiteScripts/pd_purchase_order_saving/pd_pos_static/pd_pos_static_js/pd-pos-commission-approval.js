@@ -8,7 +8,7 @@ $(document).ready(function () {
 })
 
 function loadCommissionReport() {
-    let _modal = loading('Aguarde o recarregamento da página...');
+    let _modal = loading('Wait for the page to load...');
 
     get({
         restlet: RESTLET_ID_APPROVE_COMMISSION,
@@ -26,7 +26,7 @@ function loadCommissionReport() {
 
             $.modal({
                 type: 'alert',
-                title: 'Atenção!',
+                title: 'Attention!',
                 message: errorMessage
             });
         }
@@ -41,17 +41,18 @@ function loadCommissionApproval(data) {
     $tableTHead.empty();
     $tableBody.empty();
 
-    if (!data || Object.keys(data).length === 0) {
+    if (!data.vendorBillLinesMap || Object.keys(data.vendorBillLinesMap).length === 0) {
         $tableBody.append('<tr><td colspan="7" style="text-align: center;">Nenhum registro encontrado</td></tr>');
         return;
     }
 
     createThForVendorBill($tableTHead);
 
-    Object.keys(data).forEach(transactionId => {
-        const items = data[transactionId];
+    Object.keys(data.vendorBillLinesMap).forEach(transactionId => {
+        const items = data.vendorBillLinesMap[transactionId];
+        const vendorBillSavingTotal = data?.vendorBillSavingTotal[transactionId]?.totalSaving;
 
-        createVendorBill($tableBody, items[0]);
+        createVendorBill($tableBody, items[0], vendorBillSavingTotal);
 
         createTable($tableBody, items[0]);
 
@@ -61,18 +62,19 @@ function loadCommissionApproval(data) {
     });
 }
 
-function createThForVendorBill(tableBody) {
-    return tableBody.append(
+function createThForVendorBill(tableHead) {
+    return tableHead.append(
         `<tr class="text-center">
         <th class="text-center"><i class="fa fa-check"></i></th>
         <th class="text-center">#</i></th>
             <th>Nº da Invoice</th>
             <th>Vendor</th>
+            <th>Saving Total</th>
         </tr>`
     );
 }
 
-function createVendorBill(tableBody, data) {
+function createVendorBill(tableBody, data, vendorBillSavingTotal) {
     return tableBody.append(
         `<tr class="text-center">
             <td class="text-center"> 
@@ -81,6 +83,7 @@ function createVendorBill(tableBody, data) {
             <td class="text-center" id="${data.id}"> <i class="fas fa-chevron-down text-primary rotated" onclick="toggleIcon(this, '${data.id}')"></i> </td>
             <td>${data.tranId ? `<a target="_blank" href="${data.transactionVendorBillUrl}">${data.tranId}</a>` : '-'}</td>
             <td>${data.entity ? data.entity.name : '-'}</td>
+            <td>${vendorBillSavingTotal ? formatCurrency(vendorBillSavingTotal) : '-'}</td>
         </tr>`
     )
 }
@@ -122,11 +125,15 @@ function createTable(tableBody, data) {
                 <table class="table table-success table-striped" style="width: 98%; margin: 0 auto; font-size: 1rem">
                     <thead class="thead-dark">
                         <tr>
-                            <th scope="col">Transaction</th>
-                            <th scope="col">Amount</th>
+                            <th scope="col">Item</th>
+                            <th scope="col">Part Number</th>
                             <th scope="col">Quantity</th>
-                            <th scope="col">Final Cost</th>
                             <th scope="col">Estimated Cost</th>
+                            <th scope="col">Rate</th>
+                            <th scope="col">Saving Per Unit</th>
+                            <th scope="col">Saving Total For Line</th>
+                            <th scope="col">PO Information</th>
+                            <th scope="col">Commission Saving For Line</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -140,11 +147,15 @@ function createTable(tableBody, data) {
 function createTransactionLines(tableBody, data) {
     tableBody.append(
         `<tr class="${data.id}" hidden>
-            <td>${data.appliedToTransaction ? `<a target="_blank" href="${data.transactionLineUrl}">${data.appliedToTranId}</a>` : '-'}</td>
-            <td>${data.amount ? formatCurrency(data.amount * -1) : '-'}</td>
+            <td>${data.item.name ? data.item.name : '-'}</td>
+            <td>${data.partNumberName ? data.partNumberName : '-'}</td>
             <td>${data.quantity ? formatCurrency(data.quantity * -1) : '-'}</td>
-            <td>${data.finalCost ? formatCurrency(data.finalCost) : '-'}</td>
             <td>${data.estimatedCost ? formatCurrency(data.estimatedCost) : '-'}</td>
+            <td>${data.rate ? formatCurrency(data.rate) : '-'}</td>
+            <td>${data.perUnit ? formatCurrency(data.perUnit) : '-'}</td>
+            <td>${data.total ? formatCurrency(data.total) : '-'}</td>
+            <td>${data.appliedToTransaction ? `<a target="_blank" href="${data.transactionLineUrl}">${data.appliedToTranId}</a>` : '-'}</td>
+            <td>${data.amount ? formatCurrency(data.amount) : '-'}</td>
         </tr>`
     );
 }
@@ -162,7 +173,7 @@ function approve() {
     if (!selected.length) {
         $.modal({
             type: 'alert',
-            title: 'Atenção!',
+            title: 'Attention!',
             message: 'Selecione pelo menos um registro para aprovar.'
         });
 
@@ -177,6 +188,15 @@ function approve() {
         },
         onSuccess: function () {
             window.location.reload();
+        },
+        onError: function (errorMessage) {
+            _modal.modal('hide');
+
+            $.modal({
+                type: 'alert',
+                title: 'Attention!',
+                message: errorMessage
+            });
         }
     })
 }
@@ -191,11 +211,11 @@ function getSelectedDataTargets() {
 
 function reprov() {
     const selected = getSelectedDataTargets();
-    
+
     if (!selected.length) {
         $.modal({
             type: 'alert',
-            title: 'Atenção!',
+            title: 'Attention!',
             message: 'Selecione pelo menos um registro para reprovar.'
         });
 
@@ -210,6 +230,15 @@ function reprov() {
         },
         onSuccess: function () {
             window.location.reload();
+        },
+        onError: function (errorMessage) {
+            _modal.modal('hide');
+
+            $.modal({
+                type: 'alert',
+                title: 'Attention!',
+                message: errorMessage
+            });
         }
     })
 }

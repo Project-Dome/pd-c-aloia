@@ -1,7 +1,7 @@
 /**
- *@NApiVersion 2.1
- *@NScriptType Restlet
- *Author: Lucas Monaco 
+ * @NApiVersion 2.1
+ * @NModuleScope public
+ * @author Project Dome - Mário Augusto Braga Costa
  */
 define(
     [
@@ -12,7 +12,6 @@ define(
         'N/query',
 
         '../../pd_c_netsuite_tools/pd_cnt_standard/pd-cnts-search.util.js',
-        '../../pd_c_netsuite_tools/pd_cnt_standard/pd-cnts-restlet.util',
         '../../pd_c_netsuite_tools/pd_cnt_common/pd-cntc-common.util.js'
     ],
     function (
@@ -22,9 +21,7 @@ define(
         url,
         query,
 
-        search_util,
-        restlet_util,
-        common_util
+        search_util
     ) {
 
         const TYPE = 'invoice';
@@ -57,6 +54,7 @@ define(
             quantity: { name: "quantity" },
             rate: { name: "rate" },
             supplierVendor: { name: "custcol_aae_vendor_purchase_order", type: "list" },
+            poTransaction: { name: "custcol_aae_purchaseorder", type: "list" },
             stockAloia: { name: "formulanumeric", formula: FORMULA.stockAloia },
             tranDate: { name: "trandate" },
             customerInvoice: { name: "tranid" },
@@ -82,67 +80,44 @@ define(
             commissionId: { name: "internalid", join: "custrecord_pd_ccr_transaction" }
         };
 
-        function invoiceData() {
-            const mapByInvoiceTranId = {};
+        function getBy(options) {
 
-            search_util.all({
-                type: TYPE,
-                columns: FIELDS,
-                query: search_util
-                    .where(search_util.query(FIELDS.type, 'anyof', "CustInvc"))
-                    .and(search_util.query(FIELDS.mainLine, 'is', "F"))
-                    .and(search_util.query(FIELDS.cogs, 'is', "F"))
-                    .and(search_util.query(FIELDS.taxline, 'is', "F"))
-                    .and(search_util.query(FIELDS.shipping, 'is', "F"))
-                    .and(search_util.query(FIELDS.status, 'anyof', "3")),
-                each: function (data) {
-                    log.audit("Invoice Data", data);
+            if (options.by == 'transactionId') {
+                let commissionTotal = 0;
 
-                    // let _hasUSDComission = !isNullOrEmpty(data.usdCommission);
-                    // if (!_hasUSDComission) return;
+                let invoice = search_util.all({
+                    type: TYPE,
+                    columns: FIELDS,
+                    query: search_util
+                        .where(search_util.query(FIELDS.type, 'anyof', "CustInvc"))
+                        .and(search_util.query(FIELDS.mainLine, 'is', "F"))
+                        .and(search_util.query(FIELDS.cogs, 'is', "F"))
+                        .and(search_util.query(FIELDS.taxline, 'is', "F"))
+                        .and(search_util.query(FIELDS.shipping, 'is', "F"))
+                        .and(search_util.query(FIELDS.shipping, 'is', "F"))
+                        .and(search_util.query(FIELDS.poTransaction, 'noneof', "@NONE@"))
+                        // .and(search_util.query(FIELDS.status, 'anyof', "3"))
+                        .and(search_util.query(FIELDS.transactionId, 'anyof', options.transactionId)),
+                    each: function (data) {
+                        let _hasUSDComission = !isNullOrEmpty(data.usdCommission);
+                        if (!_hasUSDComission) return;
 
-                    if (!mapByInvoiceTranId[data.tranID]) {
-                        mapByInvoiceTranId[data.tranID] = {
-                            invoiceId: data.transactionId,
-                            commissionTotal: 0,
-                            items: [],
-                            commissionId: data.commissionId
-                        };
+                        commissionTotal += parseFloat(data.usdCommission)
                     }
-                    mapByInvoiceTranId[data.tranID].commissionTotal += parseFloat(ifNullOrEmpty(data.usdCommission, 0));
+                })
 
-                    data['invoiceUrl'] = buildRecordUrl(data.transactionRecordType, data.transactionId);
-                    data['soUrl'] = buildRecordUrl(data.soRecordType, data.soInternalId);
 
-                    mapByInvoiceTranId[data.tranID].items.push(data);
+                log.audit("invoice", invoice);
 
-                    log.audit("Invoice Data", data);
+                return {
+                    invoicedata: invoice,
+                    commissionTotal: commissionTotal
                 }
-            })
-
-            log.audit("Invoice Report Results", mapByInvoiceTranId);
-
-            return mapByInvoiceTranId;
-        }
-
-        function buildRecordUrl(recordType, recordId) {
-            return url.resolveRecord({
-                recordType: recordType,
-                recordId: recordId
-            });
-        }
-
-        function postHandler() {
-            // return invoiceData();
-        }
-
-        function getHandler() {
-            return invoiceData();
+            }
         }
 
         return {
-            post: postHandler,
-            get: getHandler
+            getBy: getBy
         }
     }
 );

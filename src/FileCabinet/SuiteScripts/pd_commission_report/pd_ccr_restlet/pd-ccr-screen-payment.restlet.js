@@ -3,9 +3,9 @@
  * @NScriptType Restlet
  * @Author Filipe Carvalho - SuiteCode
  */
-define(['N/search', 'N/log'], function (search, log) {
-    function postHandler(requestBody) {    
-      return getCommissionData(requestBody);        
+define(['N/search', 'N/log', 'N/url'], function (search, log, url) {
+    function postHandler(requestBody) {
+        return getCommissionData(requestBody);
     }
 
     function getCommissionData(option) {
@@ -19,9 +19,9 @@ define(['N/search', 'N/log'], function (search, log) {
                 'AND',
                 ['custrecord_pd_ccr_approval_date', 'within', 'thismonth'],
                 'AND',
-                ['custrecord_pd_ccr_vendor_bill_linked', 'anyof', '@NONE@'],
-                'AND',
-                ['custrecord_pd_ccr_vendor_employee', 'noneof', '@NONE@']
+                ['custrecord_pd_ccr_vendor_bill_linked', 'anyof', '@NONE@']//,
+                // 'AND',
+                // ['custrecord_pd_ccr_vendor_employee', 'noneof', '@NONE@']
             ];
             log.debug('Filters', JSON.stringify(filters));
 
@@ -31,12 +31,15 @@ define(['N/search', 'N/log'], function (search, log) {
             const colAmountValue = search.createColumn({
                 name: 'custrecord_pd_ccr_amount_value'
             });
+            const invoiceId = search.createColumn({
+                name: 'custrecord_pd_ccr_transaction'
+            });
             log.debug('Columns', 'Columns criadas');
 
             const s = search.create({
                 type: 'customrecord_pd_ccr_approval_comission',
                 filters: filters,
-                columns: [colVendorEmployee, colAmountValue]
+                columns: [colVendorEmployee, colAmountValue, invoiceId]
             });
             log.debug('Search', 'Busca criada');
 
@@ -52,6 +55,8 @@ define(['N/search', 'N/log'], function (search, log) {
                 page.data.forEach(function (r, idx) {
                     const vendorEmployeeId = r.getValue(colVendorEmployee);
                     const vendorEmployee = r.getText(colVendorEmployee);
+                    const invoice = r.getValue(invoiceId);
+                    const invoiceName = r.getText(invoiceId);
                     const amountValue = parseFloat(r.getValue(colAmountValue)) || 0;
 
                     log.debug('Registro', `#${idx} - vendorEmployee: ${vendorEmployee}, amountValue: ${amountValue}, id: ${r.id}`);
@@ -60,15 +65,22 @@ define(['N/search', 'N/log'], function (search, log) {
                         vendorEmployeeId: vendorEmployeeId,
                         vendorEmployee: vendorEmployee,
                         amountValue: amountValue,
+                        invoiceId: invoice,
+                        invoiceName: invoiceName,
                         id: r.id
                     });
                 });
             });
 
+            log.debug({
+                title: 'individualResults',
+                details: JSON.stringify(individualResults)
+            });
+
             const groupedResults = {};
-            individualResults.forEach(function(item) {
+            individualResults.forEach(function (item) {
                 const vendorKey = item.vendorEmployee || 'no-vendor';
-                
+
                 if (!groupedResults[vendorKey]) {
                     groupedResults[vendorKey] = {
                         vendorEmployee: item.vendorEmployee,
@@ -77,21 +89,23 @@ define(['N/search', 'N/log'], function (search, log) {
                         isGroup: true
                     };
                 }
-                
+
                 groupedResults[vendorKey].totalAmount += item.amountValue;
                 groupedResults[vendorKey].details.push({
                     vendorEmployeeId: item.vendorEmployeeId,
                     vendorEmployee: item.vendorEmployee,
                     amountValue: item.amountValue,
+                    invoiceName: item.invoiceName,
+                    invoiceUrl: buildRecordUrl('invoice', item.invoiceId),
                     id: item.id,
                     isGroup: false
                 });
             });
 
             const finalResults = [];
-            Object.keys(groupedResults).forEach(function(vendorKey) {
+            Object.keys(groupedResults).forEach(function (vendorKey) {
                 const group = groupedResults[vendorKey];
-                
+
                 // Adicionar o registro do grupo (total)
                 finalResults.push({
                     vendorEmployeeId: group.details[0].vendorEmployeeId,
@@ -101,18 +115,18 @@ define(['N/search', 'N/log'], function (search, log) {
                     detailCount: group.details.length,
                     details: group.details
                 });
-                
+
                 // Adicionar os detalhes (registros individuais)
-                group.details.forEach(function(detail) {
+                group.details.forEach(function (detail) {
                     finalResults.push(detail);
                 });
             });
 
             log.debug('Final', `Total de resultados: ${finalResults.length}`);
             log.debug('Grouped Results', JSON.stringify(groupedResults));
-            
-            return { 
-                success: true, 
+
+            return {
+                success: true,
                 data: finalResults,
                 summary: {
                     totalRecords: individualResults.length,
@@ -123,6 +137,13 @@ define(['N/search', 'N/log'], function (search, log) {
             log.error('Erro Restlet getCommissionData', e);
             return { success: false, message: e.message };
         }
+    }
+
+    function buildRecordUrl(recordType, recordId) {
+        return url.resolveRecord({
+            recordType: recordType,
+            recordId: recordId
+        });
     }
 
     return {
