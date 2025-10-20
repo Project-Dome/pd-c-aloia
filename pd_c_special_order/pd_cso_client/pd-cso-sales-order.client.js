@@ -9,7 +9,7 @@
 define(['N/ui/message', 'N/runtime'], function (message, runtime) {
 
     let _originalLineValues = {};
-
+    let _protectedLines = [];
 
     function isAdmin() {
         let _roleId = runtime.getCurrentUser().role;
@@ -32,12 +32,31 @@ define(['N/ui/message', 'N/runtime'], function (message, runtime) {
             quantity: _currentRecord.getCurrentSublistValue({ sublistId: 'item', fieldId: 'quantity' }),
             rate: _currentRecord.getCurrentSublistValue({ sublistId: 'item', fieldId: 'rate' }),
             amount: _currentRecord.getCurrentSublistValue({ sublistId: 'item', fieldId: 'amount' }),
-            custcol_aae_purchaseorder: _currentRecord.getCurrentSublistValue({ sublistId: 'item', fieldId: 'custcol_aae_purchaseorder' })
+            custcol_aae_purchaseorder: _currentRecord.getCurrentSublistValue({ sublistId: 'item', fieldId: 'custcol_aae_purchaseorder' }),
+            lineReference: _currentRecord.getCurrentSublistValue({ sublistId: 'item', fieldId: 'custcol_pd_cso_line_reference' })
         };
+
+        let poValue = _originalLineValues.custcol_aae_purchaseorder;
+        let lineRef = _originalLineValues.lineReference;
+
+        if (poValue && lineRef) {
+            // Evita duplicidade
+            let alreadyTracked = _protectedLines.some(function (line) {
+                return line.lineReference === lineRef;
+            });
+
+            if (!alreadyTracked) {
+                _protectedLines.push({
+                    lineReference: lineRef,
+                    purchaseOrder: poValue
+                });
+            }
+        }
+
     }
 
-
     function fieldChanged(context) {
+
         if (context.sublistId !== 'item') {
             return true;
         }
@@ -79,7 +98,6 @@ define(['N/ui/message', 'N/runtime'], function (message, runtime) {
         return true;
     }
 
-
     function validateField(context) {
         if (context.sublistId !== 'item') {
             return true;
@@ -103,7 +121,6 @@ define(['N/ui/message', 'N/runtime'], function (message, runtime) {
 
         return true;
     }
-
 
     function validateDelete(context) {
         if (context.sublistId !== 'item') {
@@ -129,10 +146,92 @@ define(['N/ui/message', 'N/runtime'], function (message, runtime) {
         return true;
     }
 
+    function saveRecord(context) {
+        let _currentRecord = context.currentRecord;
+        let numLines = _currentRecord.getLineCount({ sublistId: 'item' });
+
+        let currentLineReferences = [];
+
+        // Captura os lineReference atuais da sublista item
+        for (let i = 0; i < numLines; i++) {
+            let lineRef = _currentRecord.getSublistValue({
+                sublistId: 'item',
+                fieldId: 'custcol_pd_cso_line_reference',
+                line: i
+            });
+
+            if (lineRef) {
+                currentLineReferences.push(lineRef);
+            }
+        }
+
+        // Compara com snapshot das linhas protegidas
+        let deletedProtectedLine = _protectedLines.find(function (line) {
+            return !currentLineReferences.includes(line.lineReference);
+        });
+
+        if (deletedProtectedLine) {
+            alert('Você não pode remover uma linha vinculada a uma Purchase Order.');
+            return false;
+        }
+
+        return true;
+    }
+
+    function pageInit(context) {
+        try {
+            let _salesOrderObj = context.currentRecord;
+            let _hasPoLinkedLine = false;
+            let _maxAttempts = 40;
+            let _attempt = 0;
+
+            // Verifica se existe pelo menos uma linha com PO vinculada
+            let _lineCount = _salesOrderObj.getLineCount({ sublistId: 'item' });
+
+            for (let i = 0; i < _lineCount; i++) {
+                let _poValue = _salesOrderObj.getSublistValue({
+                    sublistId: 'item',
+                    fieldId: 'custcol_aae_purchaseorder',
+                    line: i
+                });
+
+                if (_poValue) {
+                    _hasPoLinkedLine = true;
+                    break;
+                }
+            }
+
+            // Se há PO, tenta localizar e desabilitar o botão até 4 segundos (100ms * 40)
+            if (_hasPoLinkedLine) {
+                let _interval = setInterval(function () {
+                    let _clearAllButton = document.getElementById('clearsplitsitem');
+                    _attempt++;
+
+                    if (_clearAllButton) {
+                        _clearAllButton.setAttribute('disabled', true);
+                        _clearAllButton.style.opacity = 0.5;
+                        _clearAllButton.title = 'Disabled: Some item lines are linked to a Purchase Order.';
+
+                        clearInterval(_interval);
+                    }
+
+                    if (_attempt >= _maxAttempts) {
+                        clearInterval(_interval);
+                    }
+                }, 100);
+            }
+        } catch (error) {
+            console.error('Erro no pageInit:', error);
+        }
+    }
+
+
     return {
+        pageInit: pageInit,
         lineInit: lineInit,
         fieldChanged: fieldChanged,
         validateField: validateField,
-        validateDelete: validateDelete
+        validateDelete: validateDelete,
+        saveRecord: saveRecord
     };
 });
