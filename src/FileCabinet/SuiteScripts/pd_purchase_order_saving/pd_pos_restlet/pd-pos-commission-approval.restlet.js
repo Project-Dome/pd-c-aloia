@@ -55,11 +55,25 @@ define(
             const approvalCommissionAllTransactionIds = commission_approval_service.getAllTransactionId(approvalCommissionPendingData);
             const vendorBillLines = vendor_bill_service.getLinesByTransactionIds(approvalCommissionAllTransactionIds);
             log.audit({ title: 'Vendor Bill Lines', details: vendorBillLines });
+            const vendorBillSavingTotalMap = mapSavingTotal(vendorBillLines)
 
             const map = mapByTransactionId(vendorBillLines, approvalCommissionPendingData);
             log.audit({ title: 'Map Vendor Bill Lines by Transaction Id', details: map });
 
-            return map;
+            return {
+                vendorBillLinesMap: map,
+                vendorBillSavingTotal: vendorBillSavingTotalMap
+            };
+        }
+
+        function mapSavingTotal(vendorBillLines) {
+            return vendorBillLines.reduce((acc, { id, amount }) => {
+                if (!acc[id]) {
+                    acc[id] = { totalSaving: 0 };
+                }
+                acc[id].totalSaving += parseFloat(amount);
+                return acc;
+            }, {});
         }
 
         function mapByTransactionId(data, approvalCommissionData) {

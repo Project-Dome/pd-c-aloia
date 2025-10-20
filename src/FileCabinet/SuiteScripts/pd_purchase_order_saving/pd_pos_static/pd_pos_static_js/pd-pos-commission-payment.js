@@ -8,7 +8,7 @@ $(document).ready(function () {
 });
 
 function loadCommissionData() {
-    let _modal = loading('Aguarde o recarregamento da página...');
+    let _modal = loading('Wait for the page to load...');
 
     get({
         restlet: COMMISSION_PAYMENT_RESTLET,
@@ -24,7 +24,7 @@ function loadCommissionData() {
 
             $.modal({
                 type: 'alert',
-                title: 'Atenção!',
+                title: 'Attention!',
                 message: errorMessage
             });
         }
@@ -63,7 +63,8 @@ function createThForCommission(tableTHead) {
         `<tr class="text-center">
             <th class="text-center"><i class="fa fa-check"></i></th>
             <th class="text-center">#</i></th>
-            <th>Vendor</th>
+            <th>Vendor</th> 
+            <th>Total Commission</th>
         </tr>`
     );
 }
@@ -77,6 +78,7 @@ function createVendor(tableBody, commissionData) {
             </td>
             <td class="text-center" id="${commissionData.vendorEmployee.id}"> <i class="fas fa-chevron-down text-primary rotated" onclick="toggleIcon(this, '${commissionData.vendorEmployee.id}')"></i> </td>
             <td>${commissionData.vendorEmployee.name ? commissionData.vendorEmployee.name : '-'}</td>
+            <td>${commissionData.totalCommission ? formatCurrency(commissionData.totalCommission) : '-'}</td>
         </tr>`
     )
 }
@@ -178,7 +180,7 @@ function createCommissionTransaction() {
     if (!selectedIndexes.length) {
         $.modal({
             type: 'alert',
-            title: 'Atenção!',
+            title: 'Attention!',
             message: 'Select at least one record to create the Vendor Bill.'
         });
 
@@ -188,7 +190,7 @@ function createCommissionTransaction() {
     if (!dueDate) {
         $.modal({
             type: 'alert',
-            title: 'Atenção!',
+            title: 'Attention!',
             message: 'Please provide the Vendor Bill Due Date.'
         });
 
@@ -215,7 +217,7 @@ function createCommissionTransaction() {
 
             $.modal({
                 type: 'alert',
-                title: 'Atenção!',
+                title: 'Attention!',
                 message: errorMessage
             });
         }

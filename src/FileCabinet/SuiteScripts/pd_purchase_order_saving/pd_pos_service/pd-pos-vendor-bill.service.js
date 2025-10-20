@@ -34,13 +34,18 @@ define(
         const ITEM_SUBLIST_FIELDS = {
             finalCost: { name: 'custcol_aae_final_cost_po' },
             estimatedCost: { name: 'custcol_aae_estimated_cost_po' },
-            amount: { name: 'amount' },
+            amount: { name: "formulanumeric", formula: "((NVL({custcol_aae_estimated_cost_po}, 0) - NVL(({rate}*{quantity})/{quantityuom}, 0)) * NVL({quantityuom}, 0) * (-1)) * 0.10" },
             item: { name: 'item', type: 'list' },
+            rate: { name: "formulanumeric", formula: "ROUND(({rate}*{quantity})/{quantityuom}, 2)" },
             lineSequenceNumber: { name: 'linesequencenumber' },
-            quantity: { name: 'quantity' },
+            quantity: { name: "formulanumeric", formula: "ROUND({quantityuom}, 2)" },
             appliedToTransaction: { name: 'internalid', join: 'appliedToTransaction' },
             appliedToRecordType: { name: 'recordtype', join: 'appliedToTransaction' },
             appliedToTranId: { name: 'tranid', join: 'appliedToTransaction' },
+            partNumber: { name: 'custcol_pd_partnumbercustomer' },
+            partNumberName: { name: 'custcol_pd_partnumbercustname' },
+            perUnit: { name: "formulanumeric", formula: "{custcol_aae_estimated_cost_po}-(ROUND(({rate}*{quantity})/{quantityuom}, 2))" },
+            total: { name: "formulanumeric", formula: "(NVL({custcol_aae_estimated_cost_po}, 0) - NVL(({rate}*{quantity})/{quantityuom}, 0)) * NVL({quantityuom}, 0) * (-1)" },
         }
 
         const EXPENSE_SUBLIST_ID = 'expense';
@@ -84,17 +89,14 @@ define(
                 ...ITEM_SUBLIST_FIELDS
             };
 
-            log.audit({
-                title: 'MERGED_FIELDS',
-                details: MERGED_FIELDS
-            });
+            log.audit({ title: 'MERGED_FIELDS', details: MERGED_FIELDS });
 
             const _vendorBillLines = search_util.all({
                 type: TYPE,
                 columns: MERGED_FIELDS,
                 query: search_util
                     .where(search_util.query(FIELDS.id, "anyof", transactionIds))
-                    .and(search_util.query(FIELDS.status, "anyof", [STATUS.open, STATUS.paidFull]))
+                    // .and(search_util.query(FIELDS.status, "anyof", [STATUS.open, STATUS.paidFull]))
                     .and(search_util.query(FIELDS.mainLine, "is", "F"))
             });
 
@@ -165,13 +167,18 @@ define(
             })
         }
 
+        function load(object) {
+            return record.load({ type: TYPE, id: object.id, isDynamic: ifNullOrEmpty(object?.isDynamic, false) });
+        }
+
         return {
             getBy: getBy,
             readData: readData,
             getLinesByTransactionIds: getLinesByTransactionIds,
             create: create,
             set: set,
-            save: save
+            save: save,
+            load: load
         }
     }
 );
