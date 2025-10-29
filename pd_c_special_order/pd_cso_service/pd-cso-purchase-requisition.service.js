@@ -68,7 +68,9 @@ define(
             finalCostPo: { name: 'custcol_aae_final_cost_po' },
             statusItem: { name: 'custcol_pd_aae_status_item' },
             lineReference: { name: 'custcol_pd_cso_line_reference' },
-            custPoReceipt: { name: 'custcol_aae_cust_po_receipt' }
+            custPoReceipt: { name: 'custcol_aae_cust_po_receipt' },
+            finalCostPoUn: { name: 'custcol_pd_final_cost_po_un' },
+            estimatedCostTot: { name: 'custcol_pd_estimated_cost_tot' }
 
         };
 
@@ -232,6 +234,7 @@ define(
                     _itemData[ITEM_SUBLIST_FIELDS.customer.name] = options.customerId;
                     _itemData[ITEM_SUBLIST_FIELDS.poVendor.name] = item.poVendor.id;
                     _itemData[ITEM_SUBLIST_FIELDS.estimatedAmount.name] = qtyForAmt * estRate;
+                    _itemData[ITEM_SUBLIST_FIELDS.estimatedCostTot.name] = qtyForAmt * estRate;
                     _itemData[ITEM_SUBLIST_FIELDS.lineReference.name] = item.lineReference || item[ITEM_SUBLIST_FIELDS.lineReference.name];
                     _itemData[ITEM_SUBLIST_FIELDS.custPoReceipt.name] = options.custPoReceipt;
 
@@ -891,6 +894,126 @@ define(
         }
         //TODO ---------- FIM: ADIÇÃO - updateFinalCost (Purchase Requisition Service) ----------
 
+
+        // function setFinalCostUnitFromPOToPR(options) {
+        //     try {
+        //         const _prId = options.purchaseRequisitionId;
+        //         const _lineReference = options.lineReference;
+        //         const _finalCostPoUn = options.finalCostPoUn;
+
+        //         if (!_prId || !_lineReference) {
+        //             return {
+        //                 success: false,
+        //                 reason: 'Parâmetros obrigatórios ausentes',
+        //                 context: { purchaseRequisitionId: _prId, lineReference: _lineReference }
+        //             };
+        //         }
+
+        //         const _prRec = record.load({
+        //             type: TYPE,
+        //             id: _prId,
+        //             isDynamic: false
+        //         });
+
+        //         const _line = _prRec.findSublistLineWithValue({
+        //             sublistId: ITEM_SUBLIST_ID,
+        //             fieldId: ITEM_SUBLIST_FIELDS.lineReference.name,
+        //             value: _lineReference
+        //         });
+
+        //         if (_line === -1) {
+        //             return {
+        //                 success: false,
+        //                 reason: 'Linha da PR não encontrada',
+        //                 context: { purchaseRequisitionId: _prId, lineReference: _lineReference }
+        //             };
+        //         }
+
+        //         _prRec.setSublistValue({
+        //             sublistId: ITEM_SUBLIST_ID,
+        //             fieldId: ITEM_SUBLIST_FIELDS.finalCostPoUn.name,
+        //             line: _line,
+        //             value: Number(_finalCostPoUn) || 0
+        //         });
+
+        //         _prRec.save();
+
+        //         return {
+        //             success: true,
+        //             data: {
+        //                 purchaseRequisitionId: _prId,
+        //                 lineReference: _lineReference,
+        //                 finalCostPoUn: _finalCostPoUn
+        //             }
+        //         };
+
+        //     } catch (error) {
+        //         log.error({ title: 'Erro em setFinalCostUnitFromPOToPR', details: error });
+        //         return {
+        //             success: false,
+        //             error: error,
+        //             context: options
+        //         };
+        //     }
+        // }
+
+        function setFinalCostUnitFromPOToPR(options) {
+            const recId = options.recId;
+            const values = options.values;
+
+            if (!recId || !Array.isArray(values) || values.length === 0) {
+                return;
+            }
+
+            try {
+                const prRec = record.load({
+                    type: record.Type.PURCHASE_REQUISITION,
+                    id: recId,
+                    isDynamic: false
+                });
+
+                const lineCount = prRec.getLineCount({ sublistId: 'item' });
+
+                const costMap = {};
+                for (let i = 0; i < values.length; i++) {
+                    const lineRef = values[i].lineRef;
+                    const finalCost = values[i].finalCost;
+
+                    if (lineRef && finalCost != null) {
+                        costMap[lineRef] = finalCost;
+                    }
+                }
+
+                for (let i = 0; i < lineCount; i++) {
+                    const ref = prRec.getSublistValue({
+                        sublistId: 'item',
+                        fieldId: 'custcol_pd_cso_line_reference',
+                        line: i
+                    });
+
+                    if (ref && costMap[ref] != null) {
+                        prRec.setSublistValue({
+                            sublistId: 'item',
+                            fieldId: 'custcol_pd_final_cost_po_un',
+                            line: i,
+                            value: costMap[ref]
+                        });
+                    }
+                }
+
+                prRec.save({ ignoreMandatoryFields: true });
+                return true;
+
+            } catch (e) {
+                log.error({
+                    title: 'Erro ao atualizar Final Cost na PR',
+                    details: e
+                });
+            }
+        }
+
+
+
         return {
             changedItemsList: changedItemsList,
             createPurchaseRequisition: createPurchaseRequisition, // ← com proteção de urgência + pós-ajuste de rate
@@ -904,6 +1027,7 @@ define(
             removeLine: removeLine,
             updatedRequistion: updatedRequistion,
             updateVendor: updateVendor,
-            updateFinalCost: updateFinalCost
+            updateFinalCost: updateFinalCost,
+            setFinalCostUnitFromPOToPR: setFinalCostUnitFromPOToPR
         };
     });

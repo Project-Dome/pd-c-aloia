@@ -67,6 +67,8 @@ define(
                     });
                 }
 
+                //TODO: desbloqueiando o comprador.
+
             } catch (error) {
                 log.error({ title: 'Linha 71 - afterSubmit - Erro de processameto ', details: error });
             }

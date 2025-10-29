@@ -77,7 +77,9 @@ define([
         partNumberCustomer: { name: 'custcol_pd_partnumbercustomer' },
         lineReference: { name: 'custcol_pd_cso_line_reference' },
         statusItem: { name: 'custcol_pd_aae_status_item' },
-        estimatedRate: { name: 'estimatedrate' }
+        estimatedRate: { name: 'estimatedrate' },
+        finalCostPoUn: { name: 'custcol_pd_final_cost_po_un' },
+        estimatedCostTot: { name: 'custcol_pd_estimated_cost_tot' }
     };
 
     function readData(options) {
@@ -895,6 +897,108 @@ define([
         });
     }
 
+    
+
+    function updateEstimatedCostTotalPerLine(idSalesOrder) {
+        try {
+            const soRecord = record.load({
+                type: record.Type.SALES_ORDER,
+                id: idSalesOrder,
+                isDynamic: false
+            });
+
+            const lineCount = soRecord.getLineCount({ sublistId: 'item' });
+
+            for (let i = 0; i < lineCount; i++) {
+                const quantity = parseFloat(soRecord.getSublistValue({
+                    sublistId: 'item',
+                    fieldId: 'quantity',
+                    line: i
+                })) || 0;
+
+                const estimatedCostPo = parseFloat(soRecord.getSublistValue({
+                    sublistId: 'item',
+                    fieldId: 'custcol_aae_estimated_cost_po',
+                    line: i
+                })) || 0;
+
+                const total = quantity * estimatedCostPo;
+
+                soRecord.setSublistValue({
+                    sublistId: 'item',
+                    fieldId: 'custcol_pd_estimated_cost_tot',
+                    line: i,
+                    value: total
+                });
+            }
+
+            soRecord.save({ ignoreMandatoryFields: true });
+
+            return { success: true, idSalesOrder: idSalesOrder };
+
+        } catch (error) {
+            log.error({
+                title: 'Erro ao atualizar custcol_pd_estimated_cost_tot',
+                details: error
+            });
+
+            return { success: false, error: error, idSalesOrder: idSalesOrder };
+        }
+    }
+
+    function setFinalCostUnitFromPOToSO(options) {
+        const recId = options.recId;
+        const values = options.values;
+
+        if (!recId || !Array.isArray(values) || values.length === 0) {
+            return;
+        }
+
+        try {
+            const soRec = record.load({
+                type: record.Type.SALES_ORDER,
+                id: recId,
+                isDynamic: false
+            });
+
+            const lineCount = soRec.getLineCount({ sublistId: 'item' });
+
+            const costMap = {};
+            for (let i = 0; i < values.length; i++) {
+                const lineRef = values[i].lineRef;
+                const finalCost = values[i].finalCost;
+
+                if (lineRef && finalCost != null) {
+                    costMap[lineRef] = finalCost;
+                }
+            }
+
+            for (let i = 0; i < lineCount; i++) {
+                const ref = soRec.getSublistValue({
+                    sublistId: 'item',
+                    fieldId: 'custcol_pd_cso_line_reference',
+                    line: i
+                });
+
+                if (ref && costMap[ref] != null) {
+                    soRec.setSublistValue({
+                        sublistId: 'item',
+                        fieldId: 'custcol_pd_final_cost_po_un',
+                        line: i,
+                        value: costMap[ref]
+                    });
+                }
+            }
+
+            soRec.save({ ignoreMandatoryFields: true });
+
+        } catch (e) {
+            log.error({
+                title: 'Erro ao atualizar Final Cost na SO',
+                details: e
+            });
+        }
+    }
 
 
     return {
@@ -911,7 +1015,9 @@ define([
         getSalesOrderData: getSalesOrderData,
         computeDeltaForPR: computeDeltaForPR,
         updateSOItems: updateSOItems,
-        updateTransactionsFromPO: updateTransactionsFromPO
+        updateTransactionsFromPO: updateTransactionsFromPO,
+        setFinalCostUnitFromPOToSO: setFinalCostUnitFromPOToSO,
+        updateEstimatedCostTotalPerLine: updateEstimatedCostTotalPerLine
 
     }
 });

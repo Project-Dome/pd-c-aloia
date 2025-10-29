@@ -56,7 +56,7 @@ define([
   function afterSubmit(context) {
     try {
       const _cRecord = context.newRecord;
-      log.debug({ title: 'afterSubmit - Registro submetido (PO)', details: _cRecord.id });
+      log.debug({ title: 'afterSubmit - linha 59 - Registro submetido (PO)', details: _cRecord.id });
 
       // Se quiser limitar só à criação, descomente a linha abaixo
       // if (context.type !== context.UserEventType.CREATE) return;
@@ -64,7 +64,7 @@ define([
       // 1) Carrega o PO para ler/editar as linhas
       const poId = _cRecord.id;
       const poRec = record.load({ type: record.Type.PURCHASE_ORDER, id: poId, isDynamic: false });
-      log.debug({ title: 'afterSubmit - PO carregado', details: poId });
+      log.debug({ title: 'afterSubmit - linha 67 -  PO carregado', details: poId });
 
       // === [NOVO BLOCO] Preencher campos de LINHA do PO a partir da PR (via linkedorder) ===
       (function reflectBuyerAndSOFromPRToPOLines() {
@@ -124,42 +124,42 @@ define([
 
       // 2) Coleta PRs distintas a partir das linhas do PO (item.linkedorder)
       const prIds = collectRequisitionsFromPO(poRec);
-      log.debug({ title: 'afterSubmit - PRs distintas encontradas no PO', details: JSON.stringify(prIds) });
+      log.debug({ title: 'afterSubmit -linha 127 - PRs distintas encontradas no PO', details: JSON.stringify(prIds) });
 
       // 3) Para cada PR encontrada, executa as três ações na ordem solicitada
       if (prIds.length) {
         prIds.forEach(function (prId) {
           try {
-            log.debug({ title: 'afterSubmit - Processando PR', details: prId });
+            log.debug({ title: 'afterSubmit - linha 133 - Processando PR', details: prId });
 
             // PR -> dados
             const prRec = record.load({ type: record.Type.PURCHASE_REQUISITION, id: prId, isDynamic: false });
             const _purchaseRequisitionData = purchase_requisition_service.readData(prRec);
-            log.debug({ title: 'afterSubmit - Dados da Requisição', details: JSON.stringify(_purchaseRequisitionData) });
+            log.debug({ title: 'afterSubmit - linha 138 - Dados da Requisição', details: JSON.stringify(_purchaseRequisitionData) });
 
             // SO origem (exposta pelo readData da PR)
             const _idSalesOrder = _purchaseRequisitionData && _purchaseRequisitionData.salesOrder;
-            log.debug({ title: 'afterSubmit - ID da Sales Order vinculada', details: _idSalesOrder });
+            log.debug({ title: 'afterSubmit - linha 142 - ID da Sales Order vinculada', details: _idSalesOrder });
 
             if (!_idSalesOrder) {
-              log.debug({ title: 'afterSubmit - Nenhuma Sales Order vinculada à PR, pulando PR', details: prId });
+              log.debug({ title: 'afterSubmit - linha 145 - Nenhuma Sales Order vinculada à PR, pulando PR', details: prId });
               return;
             }
 
             // SO -> dados
             const _salesOrderOptions = sales_order_service.getSalesData(_idSalesOrder);
-            log.debug({ title: 'afterSubmit - Opções da Sales Order', details: JSON.stringify(_salesOrderOptions) });
+            log.debug({ title: 'afterSubmit - linha 151 - Opções da Sales Order', details: JSON.stringify(_salesOrderOptions) });
 
             const _salesOrderData = sales_order_service.readData(_salesOrderOptions);
-            log.debug({ title: 'afterSubmit - Dados da Sales Order', details: JSON.stringify(_salesOrderData) });
+            log.debug({ title: 'afterSubmit - linha 154 - Dados da Sales Order', details: JSON.stringify(_salesOrderData) });
 
             // 1) syncLinkedOrders
             const _syncLinkedOrders = sales_order_service.syncLinkedOrders(_purchaseRequisitionData, _salesOrderData);
-            log.debug({ title: 'afterSubmit - Resultado do syncLinkedOrders', details: JSON.stringify(_syncLinkedOrders) });
+            log.debug({ title: 'afterSubmit - linha 158 - Resultado do syncLinkedOrders', details: JSON.stringify(_syncLinkedOrders) });
 
             // 2) updateSalesOrder
             const _updateSalesOrder = sales_order_service.updateSalesOrder(_syncLinkedOrders);
-            log.debug({ title: 'afterSubmit - Resultado do updateSalesOrder', details: JSON.stringify(_updateSalesOrder) });
+            log.debug({ title: 'afterSubmit - linha 162 - Resultado do updateSalesOrder', details: JSON.stringify(_updateSalesOrder) });
 
             // 3) updateVendor (somente linhas da PR que apontam para ESTE PO)
             const _prDataOnlyThisPO = {
@@ -172,22 +172,22 @@ define([
             let _updateRequistion = null;
             if (_prDataOnlyThisPO.itemList.length) {
               _updateRequistion = purchase_requisition_service.updateVendor(_prDataOnlyThisPO);
-              log.debug({ title: 'afterSubmit - Resultado do updateVendor (somente linhas desta PR->PO)', details: JSON.stringify(_updateRequistion) });
+              log.debug({ title: 'afterSubmit - linha 175 -  Resultado do updateVendor (somente linhas desta PR->PO)', details: JSON.stringify(_updateRequistion) });
             } else {
-              log.debug({ title: 'afterSubmit - PR sem linhas vinculadas ao PO atual para updateVendor (ok)', details: { prId, poId } });
+              log.debug({ title: 'afterSubmit - linha 177 - PR sem linhas vinculadas ao PO atual para updateVendor (ok)', details: { prId, poId } });
             }
 
             log.debug({
-              title: 'afterSubmit - PR processada com sucesso',
+              title: 'afterSubmit - linha 181 - PR processada com sucesso',
               details: { purchaseOrderId: poId, purchaseRequisitionId: prId, salesOrderId: _idSalesOrder }
             });
 
           } catch (innerErr) {
-            log.error({ title: 'afterSubmit - Erro ao processar PR vinculada ao PO', details: { poId, prId, error: innerErr } });
+            log.error({ title: 'afterSubmit - linha 186 - Erro ao processar PR vinculada ao PO', details: { poId, prId, error: innerErr } });
           }
         });
       } else {
-        log.debug({ title: 'afterSubmit - Nenhuma Requisição vinculada ao PO (ok)', details: null });
+        log.debug({ title: 'afterSubmit - linha 190 -  Nenhuma Requisição vinculada ao PO (ok)', details: null });
       }
 
       // 4) Ações que dependem dos dados do PO (independente de ter PR)
@@ -196,11 +196,11 @@ define([
       // Atualiza FINAL COST na PR (só se houver PRs)
       if (prIds.length) {
         const _updateFinalCostPR = purchase_requisition_service.updateFinalCost(prIds, _purchaseOrderData);
-        log.audit({ title: 'afterSubmit - updateFinalCost (PR)', details: _updateFinalCostPR });
+        log.audit({ title: 'afterSubmit -linha 199 - updateFinalCost (PR)', details: _updateFinalCostPR });
       }
 
       const _hasIdSalesOrder = !isNullOrEmpty(_purchaseOrderData.salesOrder);
-      log.debug({ title: 'afterSubmit - _purchaseOrderData id SO', details: _hasIdSalesOrder });
+      log.debug({ title: 'afterSubmit -linha 203 - _purchaseOrderData id SO', details: _hasIdSalesOrder });
       // log.debug({ title: 'afterSubmit - _purchaseOrderData dados', details: _purchaseOrderData });
 
       if (_hasIdSalesOrder) {
@@ -219,11 +219,15 @@ define([
 
       // Preenche custcol_aae_final_cost_po NA SALES ORDER com {amount} das linhas do PO
       const _updateFinalCostSO = sales_order_service.updateFinalCostFromPO(_purchaseOrderData);
-      log.audit({ title: 'afterSubmit - updateFinalCostFromPO (SO)', details: _updateFinalCostSO });
+      log.audit({ title: 'afterSubmit - linha 222 - updateFinalCostFromPO (SO)', details: _updateFinalCostSO });
 
-      // Atualiza PR e SO com valores finais diretamente da PO
-      sales_order_service.updateTransactionsFromPO(poRec, poId);
+      const _propagateFinalCost = purchase_order_service.propagateFinalCost({ poRec });
+      log.audit({ title: 'afterSubmit - linha 225 - _propagateFinalCost (PO)', details: _propagateFinalCost });
 
+      const _updateFinalCostPoUnFromRate = purchase_order_service.updateFinalCostPoUnFromRate(poId);
+      log.debug({ title: 'Linha 228 - afterSubmit - retorno _updateFinalCostPoUnFromRate', details: _updateFinalCostPoUnFromRate });
+
+      log.debug({ title: 'Linha 230- afterSubmit - fim ', details: '' });
 
     } catch (error) {
       log.error({ title: 'afterSubmit - Erro de processamento (PO)', details: error });
