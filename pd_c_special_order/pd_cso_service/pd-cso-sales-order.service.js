@@ -898,7 +898,6 @@ define([
     }
 
     
-
     function updateEstimatedCostTotalPerLine(idSalesOrder) {
         try {
             const soRecord = record.load({
@@ -1000,6 +999,43 @@ define([
         }
     }
 
+    function applyEstimatedCostTotal(salesOrderRecord) {
+    try {
+        const sublistId = 'item';
+        const numLines = salesOrderRecord.getLineCount({ sublistId }) || 0;
+
+        for (let i = 0; i < numLines; i++) {
+            const quantity = parseFloat(salesOrderRecord.getSublistValue({
+                sublistId,
+                fieldId: 'quantity',
+                line: i
+            })) || 0;
+
+            const estimatedRate = parseFloat(salesOrderRecord.getSublistValue({
+                sublistId,
+                fieldId: 'estimatedrate',
+                line: i
+            })) || 0;
+
+            const estimatedCostTot = quantity * estimatedRate;
+
+            salesOrderRecord.setSublistValue({
+                sublistId,
+                fieldId: 'custcol_pd_estimated_cost_tot',
+                line: i,
+                value: estimatedCostTot
+            });
+        }
+
+    } catch (e) {
+        log.error({
+            title: 'applyEstimatedCostTotal - Erro ao calcular custo estimado total',
+            details: e
+        });
+    }
+}
+
+
 
     return {
         generateUUID: generateUUID,
@@ -1017,7 +1053,8 @@ define([
         updateSOItems: updateSOItems,
         updateTransactionsFromPO: updateTransactionsFromPO,
         setFinalCostUnitFromPOToSO: setFinalCostUnitFromPOToSO,
-        updateEstimatedCostTotalPerLine: updateEstimatedCostTotalPerLine
+        updateEstimatedCostTotalPerLine: updateEstimatedCostTotalPerLine,
+        applyEstimatedCostTotal:applyEstimatedCostTotal
 
     }
 });

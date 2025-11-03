@@ -137,6 +137,30 @@ define(
                             value: _uuid
                         });
                     }
+
+                }
+
+                for (let i = 0; i < _numLines; i++) {
+                    const _quantity = parseFloat(_cRecord.getSublistValue({
+                        sublistId: 'item',
+                        fieldId: 'quantity',
+                        line: i
+                    })) || 0;
+
+                    const _estimatedCostPo = parseFloat(_cRecord.getSublistValue({
+                        sublistId: 'item',
+                        fieldId: 'custcol_aae_estimated_cost_po',
+                        line: i
+                    })) || 0;
+
+                    const _estimatedCostTot = _quantity * _estimatedCostPo;
+
+                    _cRecord.setSublistValue({
+                        sublistId: 'item',
+                        fieldId: 'custcol_pd_estimated_cost_tot',
+                        line: i,
+                        value: _estimatedCostTot
+                    });
                 }
 
             } catch (error) {

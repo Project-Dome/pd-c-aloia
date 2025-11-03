@@ -341,11 +341,20 @@ define(
                 let _prSearch = search.create({
                     type: TYPE,
                     filters: [
-                        ['custbody_aae_buyer', 'anyof', employeeId],
-                        'AND', ['custbody_aae_urgency_order', 'anyof', ['2', 'AOG']],
-                        'AND', ['mainline', 'is', 'T']
+                        ['type', 'anyof', 'PurchReq'],
+                        'AND',
+                        ['mainline', 'is', 'T'],
+                        'AND',
+                        ['custbody_aae_urgency_order', 'anyof', '2'],
+                        'AND',
+                        ['custbody_aae_buyer', 'anyof', employeeId],   
+                        'AND',
+                        ['status', 'anyof', 'PurchReq:B']
                     ],
-                    columns: ['internalid']
+                    columns: [
+                        'internalid',
+                        'status'
+                ]
                 });
 
                 let _hasUrgentWithoutPO = false;
@@ -574,65 +583,6 @@ define(
             }
         }
 
-        function getByTrasanctionAndStatus(idPurchaseRequisition) {
-
-            var purchaserequisitionSearchObj = search.create({
-                type: "purchaserequisition",
-                settings: [{ "name": "consolidationtype", "value": "ACCTTYPE" }, { "name": "includeperiodendtransactions", "value": "F" }],
-                filters:
-                    [
-                        ["type", "anyof", "PurchReq"],
-                        "AND",
-                        ["mainline", "is", "T"],
-                        "AND",
-                        ["internalid", "anyof", idPurchaseRequisition],
-                        "AND",
-                        ["status", "anyof", "PurchReq:R", "PurchReq:E", "PurchReq:C"]
-                    ],
-                columns:
-                    [
-                        search.createColumn({ name: "ordertype", label: "Order Type" }),
-                        search.createColumn({
-                            name: "vendorname",
-                            join: "item",
-                            label: "Vendor Name"
-                        }),
-                        search.createColumn({ name: "mainline", label: "*" }),
-                        search.createColumn({ name: "trandate", label: "Date" }),
-                        search.createColumn({ name: "asofdate", label: "As-Of Date" }),
-                        search.createColumn({ name: "postingperiod", label: "Period" }),
-                        search.createColumn({ name: "taxperiod", label: "Tax Period" }),
-                        search.createColumn({ name: "type", label: "Type" }),
-                        search.createColumn({ name: "tranid", label: "Document Number" }),
-                        search.createColumn({ name: "entity", label: "Name" }),
-                        search.createColumn({ name: "account", label: "Account" }),
-                        search.createColumn({ name: "memo", label: "Memo" }),
-                        search.createColumn({ name: "amount", label: "Amount" }),
-                        search.createColumn({ name: "custbody_atlas_inv_adj_reason", label: "Inventory Adjustment Reason" }),
-                        search.createColumn({ name: "custbody_11187_pref_entity_bank", label: "Preferred Entity Bank" }),
-                        search.createColumn({ name: "custbody_11724_pay_bank_fees", label: "Vendor Bank Fees" }),
-                        search.createColumn({ name: "custbody_11724_bank_fee", label: "Bank Fee" }),
-                        search.createColumn({ name: "custbody_15529_vendor_entity_bank", label: "Entity Bank (Vendor)" }),
-                        search.createColumn({ name: "custbody_15529_emp_entity_bank", label: "Entity Bank (Employee)" }),
-                        search.createColumn({ name: "custbody_15699_exclude_from_ep_process", label: "Exclude from Electronic Bank Payments Processing" }),
-                        search.createColumn({ name: "custbody_10184_customer_entity_bank", label: "Entity Bank (Customer)" }),
-                        search.createColumn({ name: "custbody_15889_cust_refund_entity_bank", label: "Entity Bank (Customer Credit)" })
-                    ]
-            });
-            var searchResultCount = purchaserequisitionSearchObj.runPaged().count;
-            log.debug("purchaserequisitionSearchObj result count", searchResultCount);
-            purchaserequisitionSearchObj.run().each(function (result) {
-                // .run().each has a limit of 4,000 results
-                return true;
-            });
-
-            /*
-            purchaserequisitionSearchObj.id="customsearch1759324898669";
-            purchaserequisitionSearchObj.title="PD | Testing Dev - Status (copy)";
-            var newSearchId = purchaserequisitionSearchObj.save();
-            */
-        }
-
 
         return {
             readData: readData,
@@ -641,7 +591,6 @@ define(
             applyUrgencyRules: applyUrgencyRules,
             pickBuyerByLeastLoad: pickBuyerByLeastLoad,
             incrementBuyerCounter: incrementBuyerCounter,
-            updatePRBuyer: updatePRBuyer,
-            getByTrasanctionAndStatus:getByTrasanctionAndStatus
+            updatePRBuyer: updatePRBuyer
         }
     })
