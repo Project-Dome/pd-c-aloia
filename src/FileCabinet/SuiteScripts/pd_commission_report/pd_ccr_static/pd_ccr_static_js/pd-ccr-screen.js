@@ -13,7 +13,7 @@ $(document).ready(function () {
 })
 
 function loadCommissionReport() {
-    let _modal = loading('Aguarde o recarregamento da página...');
+    let _modal = loading('Please wait for the page to reload...');
 
     get({
         restlet: RESTLET,
@@ -125,7 +125,7 @@ function createInvoice(tableBody, data) {
             </td>
             <td>${data.items[0].tranID ? `<a target="_blank" href="${data.items[0].invoiceUrl}">${data.items[0].tranID}</a>` : '-'}</td>
             <td>${data.items[0].customer ? data.items[0].customer.name : '-'}</td>
-            <td>${data.commissionTotal || data.commissionTotal == 0 ? formatCurrency(data.commissionTotal)   : '-'}</td>
+            <td>${data.commissionTotal || data.commissionTotal == 0 ? formatCurrency(data.commissionTotal) : '-'}</td>
         </tr>`
     )
 }

@@ -45,24 +45,35 @@ define(
             function buildQuery() {
                 const _queryString = [
                     `SELECT
-                        DISTINCT tl.custcol_aae_purchaseorder as purchaseOrderId,
+                        tl.custcol_aae_purchaseorder as purchaseOrderId,
                         transaction.id as invoiceId,
-                        vendorBillLine.transaction as vendorBillId
+                        vendorBillLine.transaction as vendorBillId,
+                        tl.custcol_aae_buyer_purchase_order as buyer,
+                        tl.custcol_pd_cso_line_reference as lineReference
                     FROM
                         transaction
                         INNER JOIN transactionline as tl ON tl.transaction = transaction.id
-                        and mainline = 'F'
-                        and taxline = 'F'
-                        and tl.custcol_aae_purchaseorder IS NOT NULL
+                        AND mainline = 'F'
+                        AND taxline = 'F'
+                        AND tl.custcol_aae_purchaseorder IS NOT NULL
                         INNER JOIN transactionline as vendorBillLine ON vendorBillLine.createdfrom = tl.custcol_aae_purchaseorder
-                        and vendorBillLine.mainline = 'F'
-                        and vendorBillLine.taxline = 'F'
-                        INNER JOIN transaction as vendorbill on vendorbill.id = vendorBillLine.transaction and vendorbill.recordtype = 'vendorbill'
-                        LEFT JOIN customrecord_pd_pos_approval_saving AS aps ON aps.custrecord_pd_pos_pas_transaction = vendorBillLine.transaction
+                        AND vendorBillLine.mainline = 'F'
+                        AND vendorBillLine.taxline = 'F'
+                        AND vendorBillLine.custcol_pd_cso_line_reference = tl.custcol_pd_cso_line_reference
+                        INNER JOIN transaction as vendorbill on vendorbill.id = vendorBillLine.transaction
+                        AND vendorbill.recordtype = 'vendorbill'
+                        LEFT JOIN customrecord_pd_pos_approval_saving AS aps ON aps.custrecord_pd_pos_pas_transaction = vendorBillLine.transaction  
+                        AND aps.custrecord_pd_pos_pas_employee = tl.custcol_aae_buyer_purchase_order
                     WHERE
                         transaction.status = 'CustInvc:B'
-                        and transaction.recordtype = 'invoice'
-                        and aps.id IS NULL`
+                        AND transaction.recordtype = 'invoice'
+                        AND aps.id IS NULL
+                    GROUP BY
+                        tl.custcol_aae_purchaseorder,
+                        transaction.id,
+                        vendorBillLine.transaction,
+                        tl.custcol_aae_buyer_purchase_order,
+                        tl.custcol_pd_cso_line_reference`
                 ].join(' ');
 
                 return _queryString;
@@ -80,13 +91,13 @@ define(
         function map(context) {
             try {
                 const _optionsData = JSON.parse(context.value);
-                log.audit({ title: '_optionsData', details: _optionsData });
+                log.audit({ title: 'Key', details: `${_optionsData.invoiceid}&&${_optionsData.buyer}` });
+
+                // throw "Testing"
 
                 context.write({
-                    key: context.key,
-                    value: {
-                        data: _optionsData
-                    }
+                    key: `${_optionsData.invoiceid}&&${_optionsData.buyer}`,
+                    value: _optionsData
                 });
             } catch (exception) {
                 log.error('Exceptions map', exception);
@@ -95,42 +106,47 @@ define(
 
         function reduce(context) {
             try {
-                const _optionsData = JSON.parse(context.values[0])?.data;
-                const vendorBillLines = vendor_bill_service.getLinesByTransactionIds(_optionsData.vendorbillid);
-                const vendorBillSavingTotalMap = mapSavingTotal(vendorBillLines);
+                let _totalSaving = 0;
+                let _invoiceData = JSON.parse(context.values[0]);
 
-                log.audit({
-                    title: 'Reduce Data', details: {
-                        _optionsData: _optionsData,
-                        vendorBillSavingTotalMap: vendorBillSavingTotalMap
-                    }
+                context.values.forEach(commissionApprovalData => {
+                    const _optionsData = JSON.parse(commissionApprovalData);
+                    log.audit({ title: 'Data reduce', details: _optionsData });
+
+                    const vendorBillLines = vendor_bill_service.getLinesByTransactionIds(_optionsData.vendorbillid);
+                    log.audit({ title: 'vendorBillLines', details: vendorBillLines });
+
+                    _totalSaving += mapSavingTotal(vendorBillLines, _optionsData);
+                    log.audit({ title: '_totalSaving for each', details: _totalSaving });
                 });
 
-                const approvalCommissionRecord = commission_approval_service.create();
+                log.audit({ title: '_totalSaving', details: _totalSaving });
 
+                const approvalCommissionRecord = commission_approval_service.create();
                 commission_approval_service.set({
                     record: approvalCommissionRecord,
                     data: {
-                        transaction: _optionsData.vendorbillid,
+                        transaction: _invoiceData.vendorbillid,
                         status: status_commission_service.STATUS_COMMISSION.PENDING,
-                        amountValue: vendorBillSavingTotalMap[_optionsData.vendorbillid].totalSaving
+                        amountValue: _totalSaving,
+                        buyer: _invoiceData.buyer
                     }
                 });
-
                 commission_approval_service.save(approvalCommissionRecord);
             } catch (e) {
                 log.error('Exceptions reduce', e);
             }
         }
+        function mapSavingTotal(vendorBillLines, invoiceData) {
+            const filteredLines = vendorBillLines.filter(({ buyer, lineReference }) =>
+                invoiceData.buyer == buyer && invoiceData.linereference == lineReference
+            );
 
-        function mapSavingTotal(vendorBillLines) {
-            return vendorBillLines.reduce((acc, { id, amount }) => {
-                if (!acc[id]) {
-                    acc[id] = { totalSaving: 0 };
-                }
-                acc[id].totalSaving += parseFloat(amount);
-                return acc;
-            }, {});
+            const totalSaving = filteredLines.reduce((sum, { amount }) => {
+                return sum + parseFloat(amount || 0);
+            }, 0);
+
+            return totalSaving;
         }
 
         return {
