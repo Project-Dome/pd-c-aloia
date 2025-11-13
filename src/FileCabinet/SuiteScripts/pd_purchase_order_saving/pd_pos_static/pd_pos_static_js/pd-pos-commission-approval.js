@@ -41,7 +41,7 @@ function loadCommissionApproval(data) {
     $tableTHead.empty();
     $tableBody.empty();
 
-    if (!data.vendorBillLinesMap || Object.keys(data.vendorBillLinesMap).length === 0) {
+    if (!data.vendorBillLinesMap || Object.keys(data?.vendorBillLinesMap).length === 0) {
         $tableBody.append('<tr><td colspan="7" style="text-align: center;">Nenhum registro encontrado</td></tr>');
         return;
     }
@@ -57,7 +57,7 @@ function loadCommissionApproval(data) {
         createTable($tableBody, items[0]);
 
         items.forEach(transactionLineData => {
-            createTransactionLines($(`.${items[0].id} table tbody`), transactionLineData);
+            createTransactionLines($(`.${items[0].id}-${items[0].buyer} table tbody`), transactionLineData);
         })
     });
 }
@@ -80,7 +80,7 @@ function createVendorBill(tableBody, data, vendorBillSavingTotal) {
             <td class="text-center"> 
                 <input type="checkbox" data-target="${data.commissionRecordId}">
             </td>
-            <td class="text-center" id="${data.id}"> <i class="fas fa-chevron-down text-primary rotated" onclick="toggleIcon(this, '${data.id}')"></i> </td>
+            <td class="text-center" id="${data.id}"> <i class="fas fa-chevron-down text-primary rotated" onclick="toggleIcon(this, '${data.id}-${data.buyer}')"></i> </td>
             <td>${data.tranId ? `<a target="_blank" href="${data.transactionVendorBillUrl}">${data.tranId}</a>` : '-'}</td>
             <td>${data.entity ? data.entity.name : '-'}</td>
             <td>${vendorBillSavingTotal ? formatCurrency(vendorBillSavingTotal) : '-'}</td>
@@ -120,7 +120,7 @@ function toggleIcon(iconElement, targetId) {
 
 function createTable(tableBody, data) {
     tableBody.append(
-        `<tr class="${data.id}" hidden>
+        `<tr class="${data.id}-${data.buyer}" hidden>
             <td colspan="12">
                 <table class="table table-success table-striped" style="width: 98%; margin: 0 auto; font-size: 1rem">
                     <thead class="thead-dark">
@@ -146,7 +146,7 @@ function createTable(tableBody, data) {
 
 function createTransactionLines(tableBody, data) {
     tableBody.append(
-        `<tr class="${data.id}" hidden>
+        `<tr class="${data.id}-${data.buyer}" hidden>
             <td>${data.item.name ? data.item.name : '-'}</td>
             <td>${data.partNumberName ? data.partNumberName : '-'}</td>
             <td>${data.quantity ? formatCurrency(data.quantity * -1) : '-'}</td>

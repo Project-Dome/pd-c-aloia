@@ -32,6 +32,7 @@ define(
             approvalDate: { name: 'custrecord_pd_pos_pas_approval_date' },
             rejector: { name: 'custrecord_pd_pos_pas_rejector' },
             rejectDate: { name: 'custrecord_pd_pos_pas_rejection_date' },
+            buyer: { name: 'custrecord_pd_pos_pas_employee' },
             // salesAdm: { name: 'custrecord_pd_pos_sales_admin' },
             vendorBill: { name: 'custrecord_pd_pos_pas_vendor_bill' },
             amountValue: { name: 'custrecord_pd_pos_pas_commission_amount' },
@@ -134,7 +135,7 @@ define(
             approvalCommissionData[FIELDS.vendorBill.name] = options?.data?.vendorBill;
             approvalCommissionData[FIELDS.amountValue.name] = options?.data?.amountValue;
             approvalCommissionData[FIELDS.vendorEmployee.name] = options?.data?.vendorEmployee;
-
+            approvalCommissionData[FIELDS.buyer.name] = options?.data?.buyer;
 
             return record_util
                 .handler(options.record)

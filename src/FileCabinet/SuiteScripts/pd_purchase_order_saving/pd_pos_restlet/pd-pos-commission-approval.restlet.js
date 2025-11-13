@@ -45,20 +45,21 @@ define(
                 status: status_commission_service.STATUS_COMMISSION.PENDING
             });
 
-            log.audit({ title: 'approvalCommissionPendingData', details: approvalCommissionPendingData });
+            // log.audit({ title: 'approvalCommissionPendingData', details: approvalCommissionPendingData });
 
             const hasApprovalCommissionPendingData = !isNullOrEmpty(approvalCommissionPendingData)
 
-            if (!hasApprovalCommissionPendingData) return []
+            if (!hasApprovalCommissionPendingData) return {}
             // log.audit({ title: 'Approval Commission Pending Data', details: approvalCommissionPendingData });
 
             const approvalCommissionAllTransactionIds = commission_approval_service.getAllTransactionId(approvalCommissionPendingData);
             const vendorBillLines = vendor_bill_service.getLinesByTransactionIds(approvalCommissionAllTransactionIds);
             log.audit({ title: 'Vendor Bill Lines', details: vendorBillLines });
+
             const vendorBillSavingTotalMap = mapSavingTotal(vendorBillLines)
 
-            const map = mapByTransactionId(vendorBillLines, approvalCommissionPendingData);
-            log.audit({ title: 'Map Vendor Bill Lines by Transaction Id', details: map });
+            const map = mapByTransactionIdAndBuyer(vendorBillLines, approvalCommissionPendingData);
+            // log.audit({ title: 'Map Vendor Bill Lines by Transaction Id', details: map });
 
             return {
                 vendorBillLinesMap: map,
@@ -67,20 +68,25 @@ define(
         }
 
         function mapSavingTotal(vendorBillLines) {
-            return vendorBillLines.reduce((acc, { id, amount }) => {
-                if (!acc[id]) {
-                    acc[id] = { totalSaving: 0 };
+            return vendorBillLines.reduce((acc, data) => {
+                if (!acc[`${data.id}&&${data.buyer}`]) {
+                    acc[`${data.id}&&${data.buyer}`] = { totalSaving: 0 };
                 }
-                acc[id].totalSaving += parseFloat(amount);
+                acc[`${data.id}&&${data.buyer}`].totalSaving += parseFloat(data.amount);
                 return acc;
             }, {});
         }
 
-        function mapByTransactionId(data, approvalCommissionData) {
+        function mapByTransactionIdAndBuyer(data, approvalCommissionData) {
             const mapped = data.reduce((acc, vendorBillItem) => {
-                if (!acc[vendorBillItem.id]) acc[vendorBillItem.id] = [];
+                let ApprovalCommission = approvalCommissionData.filter(commissionData =>
+                    Number(commissionData.transaction) == Number(vendorBillItem.id) && Number(commissionData.buyer) == Number(vendorBillItem.buyer)
+                )[0];
 
-                let ApprovalCommission = approvalCommissionData.filter(item => Number(item.transaction) == Number(vendorBillItem.id))[0];
+                if (!ApprovalCommission) return acc;
+
+                if (!acc[`${vendorBillItem.id}&&${vendorBillItem.buyer}`]) acc[`${vendorBillItem.id}&&${vendorBillItem.buyer}`] = [];
+
                 vendorBillItem['transactionVendorBillUrl'] = buildRecordUrl('vendorbill', vendorBillItem.id);
                 vendorBillItem['approvalStatus'] = ApprovalCommission ? ApprovalCommission.status : null;
                 vendorBillItem['commissionRecordId'] = ApprovalCommission ? ApprovalCommission.id : null;
@@ -88,7 +94,7 @@ define(
                 vendorBillItem['tranId'] = ApprovalCommission ? ApprovalCommission.tranId : null;
                 vendorBillItem['transactionLineUrl'] = buildRecordUrl(vendorBillItem.appliedToRecordType, vendorBillItem.appliedToTransaction);
 
-                acc[vendorBillItem.id].push(vendorBillItem);
+                acc[`${vendorBillItem.id}&&${vendorBillItem.buyer}`].push(vendorBillItem);
 
                 return acc;
             }, {});

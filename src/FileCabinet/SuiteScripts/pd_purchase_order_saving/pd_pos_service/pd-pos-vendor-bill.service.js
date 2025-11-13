@@ -44,6 +44,8 @@ define(
             appliedToTranId: { name: 'tranid', join: 'appliedToTransaction' },
             partNumber: { name: 'custcol_pd_partnumbercustomer' },
             partNumberName: { name: 'custcol_pd_partnumbercustname' },
+            lineReference: { name: 'custcol_pd_cso_line_reference' },
+            buyer: { name: 'custcol_aae_buyer_purchase_order' },
             perUnit: { name: "formulanumeric", formula: "{custcol_aae_estimated_cost_po}-(ROUND(({rate}*{quantity})/{quantityuom}, 2))" },
             total: { name: "formulanumeric", formula: "(NVL({custcol_aae_estimated_cost_po}, 0) - NVL(({rate}*{quantity})/{quantityuom}, 0)) * NVL({quantityuom}, 0) * (-1)" },
         }
