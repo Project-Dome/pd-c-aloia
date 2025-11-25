@@ -90,10 +90,88 @@ define(
 
         }
 
+        function beforeSubmit(context) {
+            try {
+                let _contextType = context.type;
+                if ((_contextType !== context.UserEventType.CREATE) && (_contextType !== context.UserEventType.EDIT) && (_contextType !== context.UserEventType.COPY)) {
+                    return;
+                }
+
+                let _cRecord = context.newRecord;
+                let _numLines = _cRecord.getLineCount({ sublistId: 'item' }) || 0;
+
+                if (_numLines === 0) {
+                    return;
+                }
+
+                for (let i = 0; i < _numLines; i++) {
+                    let _currentValue = _cRecord.getSublistValue({
+                        sublistId: 'item',
+                        fieldId: 'custcol_pd_cso_line_reference',
+                        line: i
+                    });
+
+                    // Criação: apenas se estiver vazio
+                    if ((_contextType === context.UserEventType.CREATE ||
+                        _contextType === context.UserEventType.EDIT) &&
+                        !_currentValue) {
+
+                        let _uuid = sales_order_service.generateUUID();
+                        _cRecord.setSublistValue({
+                            sublistId: 'item',
+                            fieldId: 'custcol_pd_cso_line_reference',
+                            line: i,
+                            value: _uuid
+                        });
+                    }
+
+                    // Cópia: sempre substitui para evitar duplicidade
+                    if (_contextType === context.UserEventType.COPY) {
+
+                        let _uuid = sales_order_service.generateUUID();
+
+                        _cRecord.setSublistValue({
+                            sublistId: 'item',
+                            fieldId: 'custcol_pd_cso_line_reference',
+                            line: i,
+                            value: _uuid
+                        });
+                    }
+
+                }
+
+                for (let i = 0; i < _numLines; i++) {
+                    const _quantity = parseFloat(_cRecord.getSublistValue({
+                        sublistId: 'item',
+                        fieldId: 'quantity',
+                        line: i
+                    })) || 0;
+
+                    const _estimatedCostPo = parseFloat(_cRecord.getSublistValue({
+                        sublistId: 'item',
+                        fieldId: 'custcol_aae_estimated_cost_po',
+                        line: i
+                    })) || 0;
+
+                    const _estimatedCostTot = _quantity * _estimatedCostPo;
+
+                    _cRecord.setSublistValue({
+                        sublistId: 'item',
+                        fieldId: 'custcol_pd_estimated_cost_tot',
+                        line: i,
+                        value: _estimatedCostTot
+                    });
+                }
+
+            } catch (error) {
+                log.error({ title: 'beforeSubmit - erro ao gerar UUID', details: error });
+            }
+        }
+
+
         function afterSubmit(context) {
             try {
-
-                const _contextType = context.type
+                const _contextType = context.type;
 
                 if ((_contextType !== context.UserEventType.CREATE) && (_contextType !== context.UserEventType.EDIT)) {
                     log.debug('Processo não será executado.');
@@ -108,14 +186,14 @@ define(
                 let _purchaseRequisition = _cRecord.getValue({ fieldId: 'custbody_pd_cso_linked_requistion' });
                 let _dontCreateRequisition = _cRecord.getValue({ fieldId: 'custbody_pd_cso_dont_create_req' });
 
-
                 const _validateItems = sales_order_service.validateItems(_salesOrderData.itemList);
                 log.debug({ title: 'afterSubmit - _validateItems', details: _validateItems });
 
+                // ============================================================
+                //^ CREATE (mantido como está)
+                // ============================================================
                 if (_contextType == context.UserEventType.CREATE) {
-
                     if (_validateItems && (_dontCreateRequisition === false)) {
-
                         _cRecord = record.load({
                             type: _cRecord.type,
                             id: _cRecord.id,
@@ -123,133 +201,119 @@ define(
                         });
 
                         const _salesOrderReload = sales_order_service.readData(_cRecord);
-
                         const _idSalesOrder = _salesOrderReload.id;
                         const _createPurchaseRequisition = purchase_requisition_service.createPurchaseRequisition(_salesOrderReload);
                         let _updateSalesOrder = sales_order_service.upadtePurchaseRequistion(_idSalesOrder, _createPurchaseRequisition);
 
                         log.debug(`Linha 131 - afterSubmit - id da sales order: ${_idSalesOrder}.`);
-                        log.debug({ title: 'Linha 132 - afterSubmit - retorno de script requsição', details: _createPurchaseRequisition });
+                        log.debug({ title: 'Linha 132 - afterSubmit - retorno de script requisição', details: _createPurchaseRequisition });
                         log.debug({ title: 'Linha 133 - afterSubmit - retorno de atualização S.O.', details: `Sales Order foi atualizada: ${_updateSalesOrder}` });
                     }
                 }
 
+                // ============================================================
+                //^ EDIT (mantido + nova sincronização)
+                // ============================================================
                 if (_contextType == context.UserEventType.EDIT) {
-
                     if (_validateItems && (_dontCreateRequisition === false) && (_purchaseRequisition == '')) {
-
-                        log.debug({ title: 'Linha 141 - afterSubmit - _validarItens', details: _validateItems });
-
                         const _idSalesOrder = _salesOrderData.id;
                         const _createPurchaseRequisition = purchase_requisition_service.createPurchaseRequisition(_salesOrderData);
                         let _updateSalesOrder = sales_order_service.upadtePurchaseRequistion(_idSalesOrder, _createPurchaseRequisition);
 
                         log.debug({ title: 'afterSubmit - _dontCreateRequisition', details: _dontCreateRequisition });
                         log.debug(`Linha 148 - afterSubmit - id da sales order: ${_idSalesOrder}.`);
-                        log.debug({ title: 'Linha 149 - afterSubmit - retorno de script requsição', details: _createPurchaseRequisition });
+                        log.debug({ title: 'Linha 149 - afterSubmit - retorno de script requisição', details: _createPurchaseRequisition });
                         log.debug({ title: 'Linha 150 - afterSubmit - retorno de atualização S.O.', details: `Sales Order foi atualizada: ${_updateSalesOrder}` });
 
                         return true;
                     }
 
-
                     const _salesOrderStatus = _salesOrderData.orderStatus;
-                    const _legendStatus = _salesOrderData.status;
 
                     if (_salesOrderStatus == 'B' || _salesOrderStatus == 'E') {
-
                         const _idPurchaseRequisition = _salesOrderData.purchaseRequisition.id;
-                        // const _hasPurchaseRequisition = _salesOrderData.createPurchaseRequisition;
-
                         const _purchaseRequisitionData = purchase_requisition_service.getByStatus(_idPurchaseRequisition);
 
                         if (_purchaseRequisitionData === 'Fully Ordered') {
-
-                            throw `The Purchase Requisition has now been fully met!`
-
+                            throw `The Purchase Requisition has now been fully met!`;
                         } else if (_purchaseRequisitionData === 'Rejected') {
-
-                            throw `The Purchase Requisition is Rejected!`
-
+                            throw `The Purchase Requisition is Rejected!`;
                         } else {
+                            const _purchaseRequisitionDataFull = purchase_requisition_service.getRequisitionData(_idPurchaseRequisition);
+                            const _requistion = purchase_requisition_service.readData(_purchaseRequisitionDataFull);
 
-                            const _purchaseRequisitionData = purchase_requisition_service.getRequisitionData(_idPurchaseRequisition);
-                            const _requistion = purchase_requisition_service.readData(_purchaseRequisitionData);
+                            // ============================================================
+                            //^ NOVA LÓGICA: sincronização por referência
+                            // ============================================================
+                            const _oRecord = context.oldRecord;
+                            const _oldSalesOrderData = sales_order_service.readData(_oRecord);
 
+                            let _delta = sales_order_service.computeDeltaForPR(
+                                _salesOrderData.itemList,
+                                _oldSalesOrderData.itemList
+                            );
+
+                            // Inserções novas
+                            if ((_delta.itemsToInsert || []).length) {
+                                let _idCustomer = _salesOrderData.customerId;
+                                let _ins = purchase_requisition_service.insertionLine(
+                                    _idPurchaseRequisition,
+                                    _delta.itemsToInsert,
+                                    _idCustomer
+                                );
+                                log.debug({ title: 'afterSubmit - insertionLine (delta)', details: _ins });
+                            }
+
+                            // Exclusões
+                            if ((_delta.refsToRemove || []).length) {
+                                let _rm = purchase_requisition_service.removeLine(
+                                    _idPurchaseRequisition,
+                                    _delta.refsToRemove
+                                );
+                                log.debug({ title: 'afterSubmit - removeLine (delta)', details: _rm });
+                            }
+
+                            // ============================================================
+                            //^  Lógica existente (mantida) — atualização de itens iguais
+                            // ============================================================
                             const _itemSalesSize = _salesOrderData.itemList.length;
-                            const _itemRequistionSize = _requistion.itemList.length
-
-                            // log.debug({ title: 'afterSubmit - dados da PR', details: _purchaseRequisitionData });
-                            // log.debug({ title: 'afterSubmit - dados  de itens da SO ATUALIZADA', details: _salesOrderData.itemList });
-                            // log.debug({ title: 'afterSubmit - _requistion dados da PR', details: _requistion.itemList });
-
-                            // log.debug({ title: 'afterSubmit - tamanho do array da SO ATUALIZADA', details: _itemSalesSize });
-                            // log.debug({ title: 'afterSubmit - Tamanho do array da PR', details: _itemRequistionSize });
-
-                            if (_itemSalesSize > _itemRequistionSize) {
-
-                                log.debug({ title: 'afterSubmit -_idPurchaseRequisition', details: _idPurchaseRequisition });
-                                log.debug({ title: 'afterSubmit -_salesOrderData itemList', details: _salesOrderData.itemList });
-                                log.debug({ title: 'afterSubmit -_requistion itemList', details: _requistion.itemList });
-
-                                const _idCustomer = _salesOrderData.customerId;
-                                const _itemsToInsert = purchase_requisition_service.itemsToInsert(_salesOrderData, _requistion);
-                                log.debug({ title: 'afterSubmit - _itemsToInsert', details: _itemsToInsert });
-
-                                const _insertioLine = purchase_requisition_service.insertionLine(_idPurchaseRequisition, _itemsToInsert, _idCustomer);
-                                log.debug({ title: 'afterSubmit - _insertioLine', details: _insertioLine });
-
-                            }
-
-                            if (_itemSalesSize < _itemRequistionSize) {
-
-                                const _getLineItem = purchase_requisition_service.getLineItem(_salesOrderData, _requistion);
-                                log.debug({ title: 'afterSubmit - Lista de linhas para remoção.', details: _getLineItem });
-
-                                const _removeLine = purchase_requisition_service.removeLine(_idPurchaseRequisition, _getLineItem);
-                                log.debug({ title: 'afterSubmit - Retorno de remoção de linha', details: _removeLine });
-
-                            }
+                            const _itemRequistionSize = _requistion.itemList.length;
 
                             if (_itemSalesSize == _itemRequistionSize) {
-
-                                const _oRecord = context.oldRecord;
-                                const _oldSalesOrderData = sales_order_service.readData(_oRecord);
                                 const _actualItemSales = _salesOrderData.itemList;
                                 const _oldItemSales = _oldSalesOrderData.itemList;
                                 const _itemRequistion = _requistion.itemList;
 
-                                // log.debug({ title: 'afterSubmit - dados da itens PR', details: _itemRequistion });
-                                // log.debug({ title: 'afterSubmit - dados de itens da SO ATUALIZADA', details: _actualItemSales });
-                                // log.debug({ title: 'afterSubmit - dados de itens da SO ANTERIOR', details: _oldItemSales });
-
                                 const _hasItensChanged = purchase_requisition_service.hasDifferences(_actualItemSales, _oldItemSales);
-                                log.debug({ title: 'afterSubmit - Verificação de alterados de dados.', details: `Houve dados de itens alterados: ${_hasItensChanged}!` })
+                                log.debug({
+                                    title: 'afterSubmit - Verificação de alterados de dados.',
+                                    details: `Houve dados de itens alterados: ${_hasItensChanged}!`
+                                });
 
                                 if (_hasItensChanged == true) {
-
-                                    log.debug({ title: 'afterSubmit - Verificação de alterados de dados.', details: _hasItensChanged })
                                     const _itemsToUpdate = purchase_requisition_service.changedItemsList(_actualItemSales, _oldItemSales);
-                                    log.debug({ title: 'afterSubmit - Lista de items de alterados.', details: _itemsToUpdate })
                                     const _updatedRequistion = purchase_requisition_service.updatedRequistion(_idPurchaseRequisition, _itemsToUpdate);
                                     log.debug({ title: 'afterSubmit - Retorno - _updatedRequistion.', details: _updatedRequistion });
-
                                 }
-
                             }
-
                         }
                     }
                 }
+                const _updateEstimatedCostTotalPerLine = sales_order_service.updateEstimatedCostTotalPerLine(_cRecord.id);
+                log.debug({
+                    title: 'Linha 437 - afterSubmit - _updateEstimatedCostTotalPerLine',
+                    details: _updateEstimatedCostTotalPerLine
+                });
+
 
             } catch (error) {
                 log.error({ title: 'afterSubmit - Erro de processamento ', details: error });
             }
-
         }
 
         return {
             beforeLoad: beforeLoad,
+            beforeSubmit: beforeSubmit,
             afterSubmit: afterSubmit
         }
     })

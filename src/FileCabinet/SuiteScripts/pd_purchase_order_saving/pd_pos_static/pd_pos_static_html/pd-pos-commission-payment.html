@@ -1,0 +1,75 @@
+<div class="mt-4">
+    <div class="row">
+        <div class="col-sm-12">
+            <h5>
+                <i class="fa fa-database text-info"></i> Saving - Create Vendor Bill
+                <a class="btn btn-light btn-sm float-right" href="/app/center/card.nl?sc=-29&amp;whence=">
+                    <i class="fa fa-home text-info"></i> Netsuite Home
+                </a>
+            </h5>
+            <hr>
+        </div>
+    </div>
+
+    <div class="row mt-4">
+        <div class="col-sm-12">
+            <div class="card shadow-sm">
+
+                <div class="card-header button" data-toggle="collapse" data-target="#filter-container">
+                    <i class="fa fa-chart-bar text-info"></i> Transaction Data
+                </div>
+
+                <div class="card-body position-relative">
+                    <div class="col-sm-4">
+                        <div class="form-group mb-3">
+                            <label for="due-date" class="form-label">Due Date</label>
+                            <input type="date" id="due-date" class="form-control" />
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mt-4">
+        <div class="col-sm-12">
+            <div class="card shadow-sm">
+
+                <div class="card-header button" data-toggle="collapse" data-target="#filter-container">
+                    <i class="fa fa-list text-info"></i> Commission List
+                </div>
+
+                <div class="card-body position-relative">
+                    <div id="loading-spinner" class="loading-overlay d-none">
+                        <div class="loading-spinner"></div>
+                    </div>
+
+                    <div id="commission-table" class="table-responsive">
+                        <table class="table table-sm table-striped table-hover" id="commission-payment-table">
+                            <thead>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td colspan="100" class="text-center">
+                                        <div class="p-4 bg-light rounded">
+                                            <p class="text-muted mb-0">
+                                                <i class="fa fa-exclamation text-info"></i> No results loaded.
+                                            </p>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <hr>
+                    <button type="button" class="btn btn-success" onclick="createCommissionTransaction()">
+                        Create Commission Transaction
+                    </button>
+
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

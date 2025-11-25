@@ -1,133 +1,275 @@
 /**
  * @NApiVersion 2.1
  * @NScriptType MapReduceScript
+ * @author
+ *  Project Dome / SuiteCode
+ *
+ * Este MR faz duas coisas:
+ *  1) RECONCILIA o contador {custentity_pd_pow_prs_assigned_today} de TODOS os compradores elegíveis.
+ *  2) (Re)atribui PRs sem buyer ou com buyer "On Leave", via service.assignBuyerToPR(...).
+ *
+ * Observação sobre o contador:
+ *  - COUNTER_MODE = 'OPEN'  -> conta PRs atribuídas ao comprador que estejam "em aberto" (filtro de status é opcional, veja TODO).
+ *  - COUNTER_MODE = 'TODAY' -> conta PRs atribuídas ao comprador com trandate = HOJE.
+ *  Recomendo 'OPEN' para balancear a carga corrente.
  */
-define(
-    [
-        'N/search',
-        'N/log',
 
-        '../pd_pow_service/pd-pow-purchase-requisition.service'
+define(['N/search', 'N/log', 'N/record', '../pd_pow_service/pd-pow-purchase-requisition.service'],
+    function (search, log, record, purchase_requisition_service) {
 
-    ],
-    function (
-        search,
-        log,
+        // =============================
+        // Configurações
+        // =============================
+        const COUNTER_MODE = 'OPEN'; // 'OPEN' | 'TODAY'
 
-        purchase_requisition_service
+        // Se quiser excluir status "fechados" no modo OPEN, ajuste aqui os IDs internos:
+        // (Ex.: 'PurchReq:B' etc. Use os seus IDs internos reais. Se não souber, deixe vazio que conta todas.)
+        const CLOSED_PR_STATUS_IDS = []; // exemplo: ['PurchReq:C','PurchReq:D']
 
-    ) {
-
+        // =============================
+        // getInputData
+        // =============================
         function getInputData() {
-
             try {
-                // Retorna PRs mainline sem buyer
-                return search.create({
+                const items = [];
 
-                    type: 'purchaserequisition',
-                    filters: [
-                        ['mainline', 'is', 'T'],
-                        'AND', ['custbody_aae_buyer', 'isempty', 'T']
-                    ],
-                    columns: ['internalid', 'tranid', 'trandate']
+                // A) Enfileira TODOS os compradores elegíveis para reconciliar o contador
+                queryEligibleBuyers().forEach(function (emp) {
+                    items.push({ kind: 'EMP', employeeId: emp.id, name: emp.name });
                 });
 
-            } catch (error) {
-                log.error({ title: 'Error map getInputData', details: error })
-            }
+                // B) Enfileira PRs alvo para (re)atribuição
+                queryTargetPRs().forEach(function (pr) {
+                    items.push({ kind: 'PR', prId: pr.id, tranid: pr.tranid, buyer: pr.buyer });
+                });
 
+                log.audit('getInputData', {
+                    totalEmployeesForRecount: items.filter(i => i.kind === 'EMP').length,
+                    totalPRsForAssignment: items.filter(i => i.kind === 'PR').length
+                });
+
+                return items;
+            } catch (error) {
+                log.error({ title: 'Error getInputData', details: error });
+            }
         }
 
+        // =============================
+        // map
+        // =============================
         function map(context) {
-
             try {
+                const item = JSON.parse(context.value);
 
-                let _result = JSON.parse(context.value);
-                let _idPurchaseRequisition = _result.id || _result['internalid'] || (_result.values && _result.values.internalid);
+                if (item.kind === 'EMP') {
+                    // 1) Recalcula e atualiza o contador do funcionário
+                    const empId = item.employeeId;
+                    const newCount = recountEmployeePRs(empId);
 
-                if (!_idPurchaseRequisition) {
+                    if (newCount != null) {
+                        // Atualiza o campo {custentity_pd_pow_prs_assigned_today}
+                        try {
+                            record.submitFields({
+                                type: record.Type.EMPLOYEE,
+                                id: empId,
+                                values: { custentity_pd_pow_prs_assigned_today: newCount },
+                                options: { enableSourcing: false, ignoreMandatoryFields: true }
+                            });
 
-                    // fallback: tentar extrair string
-                    let _parsed = context.value;
-                    if (_parsed && _parsed.internalid) _idPurchaseRequisition = _parsed.internalid;
+                            log.debug('Recount OK', {
+                                employeeId: empId,
+                                employeeName: item.name,
+                                counterMode: COUNTER_MODE,
+                                newCount
+                            });
+                        } catch (e) {
+                            log.error('Recount submitFields error', { employeeId: empId, error: e });
+                        }
+                    } else {
+                        log.error('Recount failed', {
+                            employeeId: empId,
+                            employeeName: item.name
+                        });
+                    }
+
+                    return; // fim do ramo EMP
                 }
-                if (!_idPurchaseRequisition) {
 
+                if (item.kind === 'PR') {
+                    // 2) (Re)atribui PR
+                    const prId = item.prId;
+                   
+                    // TODO: SUSPENSA REDISTRIBUIÇÃO FINAL DO EXPEDIENTE
+                    // const result = purchase_requisition_service.assignBuyerToPR(prId, { forceRedistribution: true });
+
+                    // Como o service atual retorna só o buyerId (ou null), lidamos com isso:
+                    // if (result) {
+                    //     log.debug('Map - PR atribuída', { prId, buyerId: result });
+                    // } else {
+                    //     log.debug('Map - PR não atribuída', { prId, reason: 'no candidate or blocked' });
+                    // }
+                    
                     return;
                 }
 
-                let _assigned = purchase_requisition_service.assignBuyerToPR(_idPurchaseRequisition);
-
-                if (_assigned) {
-
-                    log.debug({
-                        title: 'Linha 64 - map  Atribuindo PR ao comprador ',
-                        details: `MR assign, PR ${ _idPurchaseRequisition} -> Buyer: ${ _assigned}`
-                    });
-
-                } else {
-
-                    log.debug({
-                        title: 'Linha 71 - map - Requisição sem comprador',
-                        details: `MR assign - no buyer, PR: ${_idPurchaseRequisition}`
-
-                    });
-                }
+                log.error('Map - item desconhecido', item);
 
             } catch (error) {
-                log.error({ title: 'Error map function', details: error })
+                log.error({ title: 'Error map function', details: error });
             }
         }
 
-        // function reduce(context) {
-
-        //     try {
-
-
-                // return record_log_integration.reduce(context)
-
-        //     } catch (error) {
-        //         log.error({ title: 'Error reduce function', details: error })
-        //     }
-        // }
-
-        function summarize() {
+        // =============================
+        // summarize
+        // =============================
+        function summarize(summary) {
             try {
-
-                let _total = summary.inputSummary ? summary.inputSummary.totalKeys : 'n/a';
-
-                log.audit({
-                    title: 'Linha 100 - summarize - MR summarize, Complete.',
-                    details: `Processed: + ${_total}`
+                log.audit('Summarize - MR concluído', {
+                    dateCreated: summary.dateCreated,
+                    seconds: summary.seconds,
+                    usage: summary.usage,
+                    yields: summary.yields,
+                    concurrency: summary.concurrency
                 });
 
-                if (summary.mapSummary && summary.mapSummary.errors) {
-
-                    let _mapErrs = summary.mapSummary.errors;
-
-                    for (let key in _mapErrs) {
-
-                        if (Object.prototype.hasOwnProperty.call(_mapErrs, key)) {
-
-                            log.error({
-                                title: 'Linha 113 - summarize - MR map error', 
-                                details: `${key}  :: ${JSON.stringify( _mapErrs[key])}`
-                                });
-                        }
-
-                    }
+                if (summary.inputSummary && summary.inputSummary.error) {
+                    log.error('Summarize - erro em getInputData', summary.inputSummary.error);
                 }
 
+                if (summary.mapSummary && summary.mapSummary.errors) {
+                    summary.mapSummary.errors.iterator().each(function (key, e) {
+                        log.error('Summarize - erro no Map', 'Key: ' + key + ' | Error: ' + e);
+                        return true;
+                    });
+                }
+
+                if (summary.reduceSummary && summary.reduceSummary.errors) {
+                    summary.reduceSummary.errors.iterator().each(function (key, e) {
+                        log.error('Summarize - erro no Reduce', 'Key: ' + key + ' | Error: ' + e);
+                        return true;
+                    });
+                }
             } catch (error) {
-                log.error({ title: 'Error summarize function', details: error })
+                log.error({ title: 'Error summarize function', details: error });
             }
+        }
+
+        // =============================
+        // Queries auxiliares
+        // =============================
+
+        function queryEligibleBuyers() {
+            const list = [];
+            try {
+                const s = search.create({
+                    type: search.Type.EMPLOYEE,
+                    filters: [
+                        ['custentity_pd_pow_buyer', 'is', 'T'],
+                        'AND', ['custentity_pd_pow_aae_onleave', 'is', 'F'],
+                        'AND', ['isinactive', 'is', 'F']
+                    ],
+                    columns: [
+                        'internalid',
+                        'entityid'
+                    ]
+                });
+
+                s.run().each(function (r) {
+                    list.push({
+                        id: r.getValue('internalid'),
+                        name: r.getValue('entityid')
+                    });
+                    return true;
+                });
+            } catch (e) {
+                log.error('queryEligibleBuyers error', e);
+            }
+            return list;
+        }
+
+        function queryTargetPRs() {
+            const list = [];
+            try {
+                const s = search.create({
+                    type: 'purchaserequisition',
+                    filters: [
+                        [
+                            ['custbody_aae_buyer', 'anyof', '@NONE@'], // sem comprador
+                            'OR',
+                            ['custbody_aae_buyer.custentity_pd_pow_aae_onleave', 'is', 'T'] // comprador "On Leave"
+                        ],
+                        'AND', ['mainline', 'is', 'T'],
+                        'AND', ['type', 'anyof', 'PurchReq'],
+                    ],
+                    columns: [
+                        search.createColumn({ name: 'internalid' }),
+                        search.createColumn({ name: 'tranid' }),
+                        search.createColumn({ name: 'custbody_aae_buyer' })
+                    ]
+                });
+
+                s.run().each(function (r) {
+                    list.push({
+                        id: r.getValue('internalid'),
+                        tranid: r.getValue('tranid'),
+                        buyer: r.getValue('custbody_aae_buyer') || null
+                    });
+                    return true;
+                });
+            } catch (e) {
+                log.error('queryTargetPRs error', e);
+            }
+            return list;
+        }
+
+        // =============================
+        // Cálculo do contador por funcionário
+        // =============================
+
+        function recountEmployeePRs(employeeId) {
+            try {
+                var s = search.create({
+                    type: 'purchaserequisition',
+                    filters: [
+                        ['custbody_aae_buyer', 'anyof', employeeId],
+                        'AND', ['mainline', 'is', 'T'],
+                        'AND', ['type', 'anyof', 'PurchReq']
+                    ],
+                    columns: [
+                        'internalid',
+                        'status'
+                    ]
+                });
+
+                var count = 0;
+                s.run().each(function (r) {
+                    var statusText = r.getText('status') || '';
+                    if (statusText === 'Pending Order') {
+                        count++;
+                    }
+                    return true;
+                });
+
+                log.debug('recountEmployeePRs (Pending Order only)', { employeeId: employeeId, count: count });
+                return count;
+            } catch (e) {
+                log.error('recountEmployeePRs error', { employeeId: employeeId, error: e });
+                return null;
+            }
+        }
+
+
+        // Helper simples p/ datas em searches (MM/DD/YYYY)
+        function formatDate(dt) {
+            const mm = (dt.getMonth() + 1).toString().padStart(2, '0');
+            const dd = dt.getDate().toString().padStart(2, '0');
+            const yyyy = dt.getFullYear();
+            return mm + '/' + dd + '/' + yyyy;
         }
 
         return {
             getInputData: getInputData,
             map: map,
-            // reduce: reduce,
             summarize: summarize
-        }
-    }
-)
+        };
+    });

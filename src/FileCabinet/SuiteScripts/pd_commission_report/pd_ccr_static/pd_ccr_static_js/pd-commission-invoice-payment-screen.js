@@ -13,9 +13,12 @@ $(document).ready(function () {
 });
 
 function loadCommissionData() {
+    let _modal = loading('Wait for the page to load...');
+
     post({
         restlet: RESTLET,
         onSuccess: function (response) {
+            _modal.modal('hide');
             if (response.success && response.data && response.data.length) {
                 renderCommissionTable(response.data);
             } else {
@@ -24,6 +27,7 @@ function loadCommissionData() {
             }
         },
         onError: function (err) {
+            _modal.modal('hide');
             console.error('Error calling Restlet', err);
             renderNoResults();
         }
@@ -37,6 +41,7 @@ function renderCommissionTable(data) {
     var vendorGroups = {};
     data.forEach((item, originalIndex) => {
         var vendorKey = item.vendorEmployee || 'no-vendor';
+
         if (!vendorGroups[vendorKey]) {
             vendorGroups[vendorKey] = {
                 total: null,
@@ -62,7 +67,7 @@ function renderCommissionTable(data) {
                     <td></td>
                     <td>Select</td>
                     <td>Vendor Employee</td>
-                    <td>Total Commission Value</td>
+                    <td>Total Commission</td>
                 </tr>
             </thead>
             <tbody>
@@ -95,20 +100,43 @@ function renderCommissionTable(data) {
             </tr>
         `;
 
-        vendorItems.forEach((item, itemIndex) => {
-            html += `
+        html += `
                 <tr class="collapse" id="vendor-container${vendorIndex}">
-                    <td></td>
-                    <td></td>
-                    <td>${item.vendorEmployee}</td>
-                    <td>${Number(ifNullOrEmpty(item.amountValue, 0)).format()}</td>
+                    <td colspan="12">
+                        <table class="table table-success table-striped" style="width: 98%; margin: 0 auto; font-size: 1rem">
+                        <thead class="thead-dark">
+                            <tr>
+                                <th>Vendor Employee</th>
+                                <th>Invoice</th>
+                                <th>Total Commission</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${loadLines(vendorItems)}
+                        </tbody>
+                        </table>
+                    </td>
                 </tr>
             `;
-        });
     });
 
     html += '</tbody></table>';
     _listBody.html(html);
+}
+
+function loadLines(vendorItems) {
+    let lines = '';
+
+    vendorItems.forEach((item, itemIndex) => {
+
+        lines += `<tr>
+                    <td>${item.vendorEmployee}</td>
+                    <td>${item.invoiceUrl ? `<a target="_blank" href="${item.invoiceUrl}">${item.invoiceName}</a>` : '-'}</td>
+                    <td>${Number(ifNullOrEmpty(item.amountValue, 0)).format()}</td>
+                </tr>`
+    });
+
+    return lines
 }
 
 
@@ -141,6 +169,8 @@ function createCommissionInvoice() {
     console.log('Expiration Due Date:', dueDate);
     console.log('Vendor ID:', vendorId);
 
+    let _modal = loading('creating commission transaction...');
+
     post({
         restlet: VENDOR_BILL,
         data: {
@@ -149,20 +179,29 @@ function createCommissionInvoice() {
             vendorId: vendorId
         },
         onSuccess: function (response) {
+            _modal.modal('hide');
             if (response.success) {
                 loadCommissionData();
                 location.reload();
             } else {
-                alert(`Erro ao criar Vendor Bill: ${response.message}`);
+                $.modal({
+                    type: 'alert',
+                    title: 'Attention!',
+                    message: response.message
+                });
             }
         },
         onError: function (err) {
-            console.error('Erro na chamada do Restlet VendorBill', err);
-            alert('Erro inesperado ao criar Vendor Bill. Veja o console para mais detalhes.');
+            _modal.modal('hide');
+
+            $.modal({
+                type: 'alert',
+                title: 'Attention!',
+                message: err
+            });
         }
     });
 }
-
 
 function ifNullOrEmpty(value, defaultValue) {
     return (value === null || value === undefined || value === '') ? defaultValue : value;

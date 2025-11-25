@@ -1,0 +1,55 @@
+<div class="mt-4">
+    <div class="row">
+        <div class="col-sm-12">
+            <h5>
+                <i class="fa fa-database text-info"></i> Saving - Commission Pending Approval
+                <a class="btn btn-light btn-sm float-right" href="/app/center/card.nl?sc=-29&amp;whence=">
+                    <i class="fa fa-home text-info"></i> Netsuite Home
+                </a>
+            </h5>
+            <hr>
+        </div>
+    </div>
+
+    <!-- Resultados -->
+    <div class="row mt-4">
+        <div class="col-sm-12">
+            <div class="card shadow-sm">
+
+                <div class="card-header button" data-toggle="collapse" data-target="#filter-container">
+                    <i class="fa fa-list text-info"></i> Commission List Pending Approval
+                </div>
+
+                <div class="card-body position-relative">
+                    <div id="loading-spinner" class="loading-overlay d-none">
+                        <div class="loading-spinner"></div>
+                    </div>
+                    <div id="commission-table" class="table-responsive">
+                        <table class="table table-sm table-striped table-hover" id="commission-approval-table">
+                            <thead>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td colspan="100" class="text-center">
+                                        <div class="p-4 bg-light rounded">
+                                            <p class="text-muted mb-0">
+                                                <i class="fa fa-exclamation text-info"></i> No results loaded.
+                                            </p>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <hr>
+
+                    <button type="button" class="btn btn-primary" onclick="approve()">Approve</button>
+                    <button type="button" class="btn btn-danger" onclick="reprov()">Reject</button>
+
+                </div>
+            </div>
+
+
+        </div>
+    </div>
+</div>

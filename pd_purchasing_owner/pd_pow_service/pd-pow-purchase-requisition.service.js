@@ -37,6 +37,8 @@ define(
             status: { name: 'status' },
             urgencyOrder: { name: 'custbody_aae_urgency_order' },
         };
+        // Valor interno do campo {custbody_pd_sales_orderstatus} = ON HOLD
+        const SO_STATUS_ON_HOLD = '5';
 
         function readData(options) {
             try {
@@ -68,63 +70,121 @@ define(
 
         }
 
-
-        function assignBuyerToPR(idPurchaseResquistion) {
+        function assignBuyerToPR(idPurchaseResquistion, options) {
             try {
-                // 1) Verifica se PR ainda não tem buyer (double-check)
+                const forceRedistribution = options && options.forceRedistribution;
+
+                // 1) Busca buyer atual da PR
                 let _prLookup = search.lookupFields({
                     type: TYPE,
                     id: idPurchaseResquistion,
                     columns: ['custbody_aae_buyer', 'custbody_aae_urgency_order']
                 });
 
-                if (_prLookup && _prLookup.custbody_aae_buyer && _prLookup.custbody_aae_buyer.length) {
-                    return _prLookup.custbody_aae_buyer[0].value || null;
+                let currentBuyer = (_prLookup && _prLookup.custbody_aae_buyer && _prLookup.custbody_aae_buyer.length)
+                    ? _prLookup.custbody_aae_buyer[0].value
+                    : null;
+
+                // 2) Se já tem buyer
+                if (currentBuyer) {
+                    // Carregar registro do employee para verificar status "On Leave"
+                    let employeeRec = record.load({ type: record.Type.EMPLOYEE, id: currentBuyer });
+                    let isOnLeave = employeeRec.getValue({ fieldId: 'custentity_pd_pow_aae_onleave' });
+
+                    if (!forceRedistribution || !isOnLeave) {
+                        // Mantém comprador atual, sem redistribuir
+                        return currentBuyer;
+                    }
+
+                    // Se redistribuir: decrementa contador do buyer atual
+                    let oldCount = parseInt(employeeRec.getValue({ fieldId: 'custentity_pd_pow_prs_assigned_today' })) || 0;
+                    if (oldCount > 0) {
+                        employeeRec.setValue({
+                            fieldId: 'custentity_pd_pow_prs_assigned_today',
+                            value: oldCount - 1
+                        });
+                        employeeRec.save({ enableSourcing: false, ignoreMandatoryFields: true });
+                    }
                 }
 
-                // 2) Recupera compradores elegíveis
+                // 3) Recupera compradores elegíveis
                 let _buyers = getEligibleBuyers();
                 if (!_buyers || _buyers.length === 0) {
                     return null;
                 }
 
-                // 3) Aplica regras de urgência (bloqueio temporário)
+                // 4) Aplica regras de urgência (bloqueio temporário)
                 let _filtered = applyUrgencyRules(_buyers);
 
-                // 4) Seleciona o buyer pelo menor número de PRs hoje
+                // 5) Seleciona buyer com menor carga
                 let _chosen = pickBuyerByLeastLoad(_filtered);
                 if (!_chosen) {
                     return null;
                 }
 
-                // 5) Re-confirma que PR ainda não tem buyer; se confirmado, grava.
-                let _purchaseRequisitionRecheck = search.lookupFields({
-                    type: TYPE,
-                    id: idPurchaseResquistion,
-                    columns: ['custbody_aae_buyer']
-                });
-
-                if (_purchaseRequisitionRecheck && _purchaseRequisitionRecheck.custbody_aae_buyer && _purchaseRequisitionRecheck.custbody_aae_buyer.length) {
-                    // outra thread/execução atribuiu antes -> abort
-                    return _purchaseRequisitionRecheck.custbody_aae_buyer[0].value || null;
-                }
-
-                // 6) Atualiza PR e incrementa contador
+                // 6) Atualiza PR com novo comprador
                 updatePRBuyer(idPurchaseResquistion, _chosen.id);
+
+                // 7) Incrementa contador do novo buyer
                 incrementBuyerCounter(_chosen.id);
 
                 log.debug({
-                    title: 'Linha 117 - assignBuyerToPR - id do comprador designado para PR',
-                    details: _chosen.id
-                })
+                    title: 'assignBuyerToPR - buyer atribuído/redistribuído',
+                    details: `PR ${idPurchaseResquistion} -> Buyer ${_chosen.id}`
+                });
 
                 return _chosen.id;
 
             } catch (error) {
-                log.error('Linha 124 - assignBuyerToPR - Erro de processamento ', error);
+                log.error('assignBuyerToPR - Erro de processamento', error);
                 return null;
             }
         }
+
+
+        /**
+        * Bloqueia o funcionário se ele estiver como buyer em alguma LINHA de Sales Order
+        * cujo {custbody_pd_sales_orderstatus} = ON HOLD (5).
+        * Observação: como o buyer está em campo de linha ({custcol_aae_buyer_purchase_order}),
+        * buscamos mainline = F para atingir as linhas.
+        */
+        function isBuyerBlockedByOnHoldSO(employeeId) {
+            try {
+                // Busca transações Sales Order por linha
+                var soSearch = search.create({
+                    type: search.Type.SALES_ORDER,
+                    filters: [
+                        // Campo de corpo customizado com a lista de status
+                        ['custbody_pd_sales_orderstatus', 'anyof', SO_STATUS_ON_HOLD],
+                        'AND',
+                        // Campo de LINHA que referencia o funcionário-buyer
+                        ['custcol_aae_buyer_purchase_order', 'anyof', employeeId],
+                        'AND',
+                        // Precisamos olhar as linhas (não o cabeçalho)
+                        ['mainline', 'is', 'F']
+                    ],
+                    columns: ['internalid']
+                });
+
+                // Basta saber se existe ao menos uma
+                var paged = soSearch.runPaged({ pageSize: 1 });
+                var blocked = (paged.count > 0);
+
+                log.debug({
+                    title: 'isBuyerBlockedByOnHoldSO',
+                    details: { employeeId: employeeId, blockedByOnHoldSO: blocked }
+                });
+
+                return blocked;
+            } catch (error) {
+                log.error({
+                    title: 'isBuyerBlockedByOnHoldSO - Erro de processamento',
+                    details: error
+                });
+                return false;
+            }
+        }
+
 
         function getEligibleBuyers() {
 
@@ -135,109 +195,140 @@ define(
 
                 let _buyers = [];
 
-                let _employeeSearch = search.create({
+                let employeeSearchObj = search.create({
                     type: search.Type.EMPLOYEE,
                     filters: [
-                        ['custentity_pd_pow_buyer', 'is', 'T'],
-                        'AND', ['isinactive', 'is', 'F'],
-                        'AND', ['custentity_pd_pow_aae_onleave', 'is', 'F']
+                        ["custentity_pd_pow_buyer", "is", "T"],
+                        "AND",
+                        ["custentity_pd_pow_aae_onleave", "is", "F"],
+                        "AND",
+                        ["isinactive", "is", "F"]
                     ],
                     columns: [
-                        'internalid',
-                        'entityid',
-                        'custentity_pd_pow_prs_assigned_today',
-                        'custentity_pd_pow_shift_start',
-                        'custentity_pd_pow_shift_end'
+                        "internalid",
+                        "entityid",
+                        "custentity_pd_pow_prs_assigned_today",
+                        "custentity_pd_pow_shift_start",
+                        "custentity_pd_pow_shift_end"
                     ]
                 });
 
-                let _paged = _employeeSearch.runPaged({ pageSize: 1000 });
+                // Executa a pesquisa diretamente
+                employeeSearchObj.run().each(function (result) {
+                    let _id = result.getValue("internalid");
+                    let _name = result.getValue("entityid");
+                    let _prsToday = parseInt(result.getValue("custentity_pd_pow_prs_assigned_today")) || 0;
+                    let _shiftStart = result.getValue("custentity_pd_pow_shift_start") || "";
+                    let _shiftEnd = result.getValue("custentity_pd_pow_shift_end") || "";
 
-                _paged.pageRanges.forEach(function (pageRange) {
+                    // Converte horários para minutos
+                    let _startMin = parseTimeToMinutes(_shiftStart);
+                    let _endMin = parseTimeToMinutes(_shiftEnd);
 
-                    let _page = _paged.fetch({ index: pageRange.index });
-
-                    _page.data.forEach(function (result) {
-
-                        let _id = result.getValue('internalid');
-                        let _name = result.getValue('entityid');
-                        let _prsToday = parseInt(result.getValue('custentity_pd_pow_prs_assigned_today')) || 0;
-                        let _shiftStart = result.getValue('custentity_pd_pow_shift_start') || '';
-                        let _shiftEnd = result.getValue('custentity_pd_pow_shift_end') || '';
-
-                        let _startMin = parseTimeToMinutes(_shiftStart);
-                        let _endMin = parseTimeToMinutes(_shiftEnd);
-
-                        let _inShift = true;
-
-                        if (_startMin !== null && _endMin !== null) {
-                            _inShift = isNowInShift(_nowMinutes, _startMin, _endMin);
-                        }
-
-                        if (_inShift) {
-                            _buyers.push({
-                                id: _id,
-                                name: _name,
-                                prsToday: _prsToday,
-                                shiftStartMin: _startMin,
-                                shiftEndMin: _endMin
-                            });
-                        }
+                    log.debug({
+                        title: 'Linha 169  - getEligibleBuyers - _id e _name',
+                        details: `Id do employee: ${_id} - nome do employee: ${_name}`
                     });
+                    log.debug({
+                        title: 'Linha 173 - getEligibleBuyers -  _prsToday',
+                        details: `Quantas requisições atribuídas: ${_prsToday}`
+                    });
+                    log.debug({
+                        title: 'Linha 177 - getEligibleBuyers - _startMin',
+                        details: _startMin
+                    });
+                    log.debug({
+                        title: 'Linha 181 - getEligibleBuyers - _endMin',
+                        details: _endMin
+                    });
+
+                    let _inShift = true;
+
+                    if (_startMin !== null && _endMin !== null) {
+                        _inShift = isNowInShift(_nowMinutes, _startMin, _endMin);
+
+                        log.debug({
+                            title: 'Linha 191 - getEligibleBuyers - _inShift',
+                            details: _inShift
+                        });
+                    }
+
+                    if (_inShift) {
+                        _buyers.push({
+                            id: _id,
+                            name: _name,
+                            prsToday: _prsToday,
+                            shiftStartMin: _startMin,
+                            shiftEndMin: _endMin
+                        });
+                    }
+
+                    return true; // continua iterando
                 });
 
                 log.debug({
-                    title: 'Linha 190 - getEligibleBuyers - compradores elegíveis',
+                    title: "getEligibleBuyers - compradores elegíveis",
                     details: _buyers
-                })
+                });
 
                 return _buyers;
 
             } catch (error) {
 
                 log.error({
-                    title: 'Linha 199- getEligibleBuyers - Erro de processamento ',
+                    title: 'Linha 219- getEligibleBuyers - Erro de processamento ',
                     details: error
                 });
             }
         }
 
         function applyUrgencyRules(buyers) {
-
             try {
-
                 let _filtered = [];
                 let _blockedCount = 0;
 
                 for (let i = 0; i < buyers.length; i++) {
-
                     let _buyer = buyers[i];
-                    let blocked = isBuyerBlockedByUrgency(_buyer.id);
+
+                    // Regra 1 (já existente): urgente sem PO
+                    let blockedByUrgency = isBuyerBlockedByUrgency(_buyer.id);
+
+                    // Regra 2 (NOVA): possui SO em ON HOLD onde ele é o buyer na linha
+                    let blockedByOnHoldSO = isBuyerBlockedByOnHoldSO(_buyer.id);
+
+                    let blocked = blockedByUrgency || blockedByOnHoldSO;
+
+                    log.debug({
+                        title: 'applyUrgencyRules - buyer block check',
+                        details: {
+                            buyerId: _buyer.id,
+                            blockedByUrgency: blockedByUrgency,
+                            blockedByOnHoldSO: blockedByOnHoldSO,
+                            finalBlocked: blocked
+                        }
+                    });
 
                     if (blocked) {
-
                         _blockedCount++;
-
                     } else {
                         _filtered.push(_buyer);
                     }
                 }
 
+                // Se todos ficarem bloqueados, devolve a lista original para não paralisar o fluxo
                 if (_blockedCount === buyers.length) {
                     return buyers;
                 }
 
                 log.debug({
-                    title: 'Linha 231 - applyUrgencyRules - compradores filtrados ',
+                    title: 'applyUrgencyRules - compradores filtrados',
                     details: _filtered
-                })
+                });
 
                 return _filtered;
-
             } catch (error) {
-
                 log.error({
-                    title: 'Linha 240- applyUrgencyRules - Erro de processamento ',
+                    title: 'applyUrgencyRules - Erro de processamento',
                     details: error
                 });
             }
@@ -250,11 +341,20 @@ define(
                 let _prSearch = search.create({
                     type: TYPE,
                     filters: [
-                        ['custbody_aae_buyer', 'anyof', employeeId],
-                        'AND', ['custbody_aae_urgency_order', 'anyof', ['2', 'AOG']],
-                        'AND', ['mainline', 'is', 'T']
+                        ['type', 'anyof', 'PurchReq'],
+                        'AND',
+                        ['mainline', 'is', 'T'],
+                        'AND',
+                        ['custbody_aae_urgency_order', 'anyof', '2'],
+                        'AND',
+                        ['custbody_aae_buyer', 'anyof', employeeId],   
+                        'AND',
+                        ['status', 'anyof', 'PurchReq:B']
                     ],
-                    columns: ['internalid']
+                    columns: [
+                        'internalid',
+                        'status'
+                ]
                 });
 
                 let _hasUrgentWithoutPO = false;
