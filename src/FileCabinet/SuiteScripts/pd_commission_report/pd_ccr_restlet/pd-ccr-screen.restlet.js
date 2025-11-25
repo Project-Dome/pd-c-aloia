@@ -65,7 +65,7 @@ define(
             poVendorId: { name: "formulatext", formula: "{custcol_aae_purchase_order_linked.internalid}" },
             vendorPODate: { name: "formuladate", formula: "{custcol_aae_purchase_order_linked.trandate}" },
             vendorShipDate: { name: "formuladate", formula: "{custcol_aae_purchase_order_linked.expectedreceiptdate}" },
-            vendorTerms: { name: "formulatext", formula:"{CUSTCOL_AAE_PURCHASE_ORDER_LINKED.terms}" },
+            vendorTerms: { name: "formulatext", formula: "{CUSTCOL_AAE_PURCHASE_ORDER_LINKED.terms}" },
             stockAloia: { name: "formulanumeric", formula: FORMULA.stockAloia },
             dateINV: { name: "trandate" },
             customerInvoice: { name: "tranid" },
@@ -74,7 +74,7 @@ define(
             freightVendorToAloia: { name: "formulanumeric", formula: "{custbody_aee_freight_cost_vendor}" },
             bhCost: { name: "handlingcost" },
             hazmatFees: { name: "formulanumeric", formula: "{custbody_aae_hazmat_aog_other_fees}" },
-            unitCostVendorUSD: { name: "rate"},
+            unitCostVendorUSD: { name: "rate" },
             totalCostUSD: { name: "formulacurrency", formula: FORMULA.totalCostUSD },
             costEAUSD: { name: "formulanumeric", formula: FORMULA.costEAUSD },
             totalSalesSold: { name: "amount" },
@@ -95,20 +95,26 @@ define(
         };
 
         function executeInvoiceReport() {
+            
+            const STATUS_COMISSION = {
+                PENDING: 3,
+                APPROVED: 1,
+                REPROVED: 2
+            }
 
             var results = [];
             //let _query = buildQuery();
             search_util.all({
                 type: TYPE,
                 columns: FIELDS,
-                query:search_util
-                        .where(search_util.query(FIELDS.type, 'anyof', "CustInvc"))
-                        .and(search_util.query(FIELDS.cogs, 'is', "F"))
-                        .and(search_util.query(FIELDS.taxline, 'is', "F"))
-                        .and(search_util.query(FIELDS.shipping, 'is', "F"))
-                        .and(search_util.query(FIELDS.mainLine, 'is', "F"))
-                        .and(search_util.query(FIELDS.status, 'anyof', "3")),
-                        //.and(search_util.query(FIELDS.amountremaining, 'equalto', "0.00")),
+                query: search_util
+                    .where(search_util.query(FIELDS.type, 'anyof', "CustInvc"))
+                    .and(search_util.query(FIELDS.cogs, 'is', "F"))
+                    .and(search_util.query(FIELDS.taxline, 'is', "F"))
+                    .and(search_util.query(FIELDS.shipping, 'is', "F"))
+                    .and(search_util.query(FIELDS.mainLine, 'is', "F"))
+                    .and(search_util.query(FIELDS.status, 'anyof', "3")),
+                //.and(search_util.query(FIELDS.amountremaining, 'equalto', "0.00")),
                 each: function (data) {
                     let _hasUSDComission = !isNullOrEmpty(data.usdCommission);
                     if (!_hasUSDComission) return;

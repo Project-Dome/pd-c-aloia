@@ -31,6 +31,6 @@ function (record, log, render, format, file, runtime, search, suitelet_util) {
     }
 
     return {
-        onRequest: onRequest,
+        onRequest: onRequest
     };
 });
