@@ -580,33 +580,80 @@ define([
      * Calcula delta entre itens antigos e atuais da SO, via lineReference
      * Retorna { itemsToInsert, refsToRemove }
      */
+    // function computeDeltaForPR(newItemList, oldItemList) {
+    //     try {
+    //         let _newIdx = indexByRef(newItemList || []);
+    //         let _oldIdx = indexByRef(oldItemList || []);
+
+    //         // refs removidas
+    //         let _refsToRemove = [];
+    //         Object.keys(_oldIdx).forEach(function (ref) {
+    //             if (!_newIdx[ref]) {
+    //                 _refsToRemove.push(ref);
+    //             }
+    //         });
+
+    //         // linhas novas
+    //         let _itemsToInsert = [];
+    //         Object.keys(_newIdx).forEach(function (ref) {
+    //             if (!_oldIdx[ref]) {
+    //                 _itemsToInsert.push(mapSoLineForPr(_newIdx[ref]));
+    //             }
+    //         });
+
+    //         return { itemsToInsert: _itemsToInsert, refsToRemove: _refsToRemove };
+    //     } catch (error) {
+    //         log.error({ title: 'computeDeltaForPR - erro', details: error });
+    //         return { itemsToInsert: [], refsToRemove: [] };
+    //     }
+    // }
+
     function computeDeltaForPR(newItemList, oldItemList) {
-        try {
-            let _newIdx = indexByRef(newItemList || []);
-            let _oldIdx = indexByRef(oldItemList || []);
+        const _newRefs = new Set();
+        const _oldRefs = new Set();
+        const _itemsToInsert = [];
+        const _refsToRemove = [];
 
-            // refs removidas
-            let _refsToRemove = [];
-            Object.keys(_oldIdx).forEach(function (ref) {
-                if (!_newIdx[ref]) {
-                    _refsToRemove.push(ref);
+        const _oldItemMap = {};
+        oldItemList.forEach(_item => {
+            if (_item.lineReference) {
+                _oldRefs.add(_item.lineReference);
+                _oldItemMap[_item.lineReference] = _item;
+            }
+        });
+
+        newItemList.forEach(_item => {
+            if (_item.lineReference) {
+                _newRefs.add(_item.lineReference);
+
+                const _existedBefore = _oldItemMap[_item.lineReference];
+                const _wasBlockedBefore = _existedBefore && _existedBefore.dontCreateRequisition === true;
+                const _isNowReleased = _item.dontCreateRequisition === false;
+
+                // 👇 Caso novo: item já existia, mas foi liberado agora
+                if (_existedBefore && _wasBlockedBefore && _isNowReleased) {
+                    _itemsToInsert.push(_item);
                 }
-            });
 
-            // linhas novas
-            let _itemsToInsert = [];
-            Object.keys(_newIdx).forEach(function (ref) {
-                if (!_oldIdx[ref]) {
-                    _itemsToInsert.push(mapSoLineForPr(_newIdx[ref]));
+                // 👇 Caso tradicional: item totalmente novo
+                if (!_oldRefs.has(_item.lineReference) && !_item.dontCreateRequisition) {
+                    _itemsToInsert.push(_item);
                 }
-            });
+            }
+        });
 
-            return { itemsToInsert: _itemsToInsert, refsToRemove: _refsToRemove };
-        } catch (error) {
-            log.error({ title: 'computeDeltaForPR - erro', details: error });
-            return { itemsToInsert: [], refsToRemove: [] };
-        }
+        oldItemList.forEach(_item => {
+            if (_item.lineReference && !_newRefs.has(_item.lineReference)) {
+                _refsToRemove.push(_item.lineReference);
+            }
+        });
+
+        return {
+            itemsToInsert: _itemsToInsert,
+            refsToRemove: _refsToRemove
+        };
     }
+
 
 
     function updateSOItems(options) {
@@ -897,7 +944,7 @@ define([
         });
     }
 
-    
+
     function updateEstimatedCostTotalPerLine(idSalesOrder) {
         try {
             const soRecord = record.load({
@@ -1000,40 +1047,40 @@ define([
     }
 
     function applyEstimatedCostTotal(salesOrderRecord) {
-    try {
-        const sublistId = 'item';
-        const numLines = salesOrderRecord.getLineCount({ sublistId }) || 0;
+        try {
+            const sublistId = 'item';
+            const numLines = salesOrderRecord.getLineCount({ sublistId }) || 0;
 
-        for (let i = 0; i < numLines; i++) {
-            const quantity = parseFloat(salesOrderRecord.getSublistValue({
-                sublistId,
-                fieldId: 'quantity',
-                line: i
-            })) || 0;
+            for (let i = 0; i < numLines; i++) {
+                const quantity = parseFloat(salesOrderRecord.getSublistValue({
+                    sublistId,
+                    fieldId: 'quantity',
+                    line: i
+                })) || 0;
 
-            const estimatedRate = parseFloat(salesOrderRecord.getSublistValue({
-                sublistId,
-                fieldId: 'estimatedrate',
-                line: i
-            })) || 0;
+                const estimatedRate = parseFloat(salesOrderRecord.getSublistValue({
+                    sublistId,
+                    fieldId: 'estimatedrate',
+                    line: i
+                })) || 0;
 
-            const estimatedCostTot = quantity * estimatedRate;
+                const estimatedCostTot = quantity * estimatedRate;
 
-            salesOrderRecord.setSublistValue({
-                sublistId,
-                fieldId: 'custcol_pd_estimated_cost_tot',
-                line: i,
-                value: estimatedCostTot
+                salesOrderRecord.setSublistValue({
+                    sublistId,
+                    fieldId: 'custcol_pd_estimated_cost_tot',
+                    line: i,
+                    value: estimatedCostTot
+                });
+            }
+
+        } catch (e) {
+            log.error({
+                title: 'applyEstimatedCostTotal - Erro ao calcular custo estimado total',
+                details: e
             });
         }
-
-    } catch (e) {
-        log.error({
-            title: 'applyEstimatedCostTotal - Erro ao calcular custo estimado total',
-            details: e
-        });
     }
-}
 
 
 
@@ -1054,7 +1101,7 @@ define([
         updateTransactionsFromPO: updateTransactionsFromPO,
         setFinalCostUnitFromPOToSO: setFinalCostUnitFromPOToSO,
         updateEstimatedCostTotalPerLine: updateEstimatedCostTotalPerLine,
-        applyEstimatedCostTotal:applyEstimatedCostTotal
+        applyEstimatedCostTotal: applyEstimatedCostTotal
 
     }
 });

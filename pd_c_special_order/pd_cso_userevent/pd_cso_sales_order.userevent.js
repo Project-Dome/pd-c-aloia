@@ -181,13 +181,17 @@ define(
                 let _cRecord = context.newRecord;
                 const _salesOrderData = sales_order_service.readData(_cRecord);
 
-                log.debug({ title: `afterSubmit - Dados da sales order`, details: _salesOrderData });
+                log.debug({ title: `Linha 184 - afterSubmit - Dados da sales order`, details: _salesOrderData });
 
                 let _purchaseRequisition = _cRecord.getValue({ fieldId: 'custbody_pd_cso_linked_requistion' });
                 let _dontCreateRequisition = _cRecord.getValue({ fieldId: 'custbody_pd_cso_dont_create_req' });
 
-                const _validateItems = sales_order_service.validateItems(_salesOrderData.itemList);
-                log.debug({ title: 'afterSubmit - _validateItems', details: _validateItems });
+                const _filteredSalesOrder = purchase_requisition_service.filterItemsToPR(_salesOrderData);
+                log.debug({ title: 'linha 190 -afterSubmit - _filteredSalesOrder', details: _filteredSalesOrder });
+
+                // const _validateItems = sales_order_service.validateItems(_salesOrderData.itemList);
+                const _validateItems = sales_order_service.validateItems(_filteredSalesOrder.itemList);
+                log.debug({ title: 'Linha 193 - afterSubmit - _validateItems', details: _validateItems });
 
                 // ============================================================
                 //^ CREATE (mantido como está)
@@ -201,13 +205,16 @@ define(
                         });
 
                         const _salesOrderReload = sales_order_service.readData(_cRecord);
+                        log.debug({ title: 'linha 207 -afterSubmit - _salesOrderReload', details: _salesOrderReload });
                         const _idSalesOrder = _salesOrderReload.id;
-                        const _createPurchaseRequisition = purchase_requisition_service.createPurchaseRequisition(_salesOrderReload);
+
+                        // const _createPurchaseRequisition = purchase_requisition_service.createPurchaseRequisition(_salesOrderReload);
+                        const _createPurchaseRequisition = purchase_requisition_service.createPurchaseRequisition(_filteredSalesOrder);
                         let _updateSalesOrder = sales_order_service.upadtePurchaseRequistion(_idSalesOrder, _createPurchaseRequisition);
 
-                        log.debug(`Linha 131 - afterSubmit - id da sales order: ${_idSalesOrder}.`);
-                        log.debug({ title: 'Linha 132 - afterSubmit - retorno de script requisição', details: _createPurchaseRequisition });
-                        log.debug({ title: 'Linha 133 - afterSubmit - retorno de atualização S.O.', details: `Sales Order foi atualizada: ${_updateSalesOrder}` });
+                        log.debug(`Linha 215 - afterSubmit - id da sales order: ${_idSalesOrder}.`);
+                        log.debug({ title: 'Linha 216 - afterSubmit - retorno de script requisição', details: _createPurchaseRequisition });
+                        log.debug({ title: 'Linha 217 - afterSubmit - retorno de atualização S.O.', details: `Sales Order foi atualizada: ${_updateSalesOrder}` });
                     }
                 }
 
@@ -217,13 +224,14 @@ define(
                 if (_contextType == context.UserEventType.EDIT) {
                     if (_validateItems && (_dontCreateRequisition === false) && (_purchaseRequisition == '')) {
                         const _idSalesOrder = _salesOrderData.id;
-                        const _createPurchaseRequisition = purchase_requisition_service.createPurchaseRequisition(_salesOrderData);
+                        // const _createPurchaseRequisition = purchase_requisition_service.createPurchaseRequisition(_salesOrderData);
+                        const _createPurchaseRequisition = purchase_requisition_service.createPurchaseRequisition(_filteredSalesOrder);
                         let _updateSalesOrder = sales_order_service.upadtePurchaseRequistion(_idSalesOrder, _createPurchaseRequisition);
 
-                        log.debug({ title: 'afterSubmit - _dontCreateRequisition', details: _dontCreateRequisition });
-                        log.debug(`Linha 148 - afterSubmit - id da sales order: ${_idSalesOrder}.`);
-                        log.debug({ title: 'Linha 149 - afterSubmit - retorno de script requisição', details: _createPurchaseRequisition });
-                        log.debug({ title: 'Linha 150 - afterSubmit - retorno de atualização S.O.', details: `Sales Order foi atualizada: ${_updateSalesOrder}` });
+                        log.debug({ title: 'Linha 231 - afterSubmit - _dontCreateRequisition', details: _dontCreateRequisition });
+                        log.debug(`Linha 232 - afterSubmit - id da sales order: ${_idSalesOrder}.`);
+                        log.debug({ title: 'Linha 233 - afterSubmit - retorno de script requisição', details: _createPurchaseRequisition });
+                        log.debug({ title: 'Linha 234 - afterSubmit - retorno de atualização S.O.', details: `Sales Order foi atualizada: ${_updateSalesOrder}` });
 
                         return true;
                     }
@@ -301,7 +309,7 @@ define(
                 }
                 const _updateEstimatedCostTotalPerLine = sales_order_service.updateEstimatedCostTotalPerLine(_cRecord.id);
                 log.debug({
-                    title: 'Linha 437 - afterSubmit - _updateEstimatedCostTotalPerLine',
+                    title: 'Linha 312 - afterSubmit - _updateEstimatedCostTotalPerLine',
                     details: _updateEstimatedCostTotalPerLine
                 });
 

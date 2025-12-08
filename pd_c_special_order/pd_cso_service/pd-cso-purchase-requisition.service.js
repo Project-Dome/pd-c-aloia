@@ -190,7 +190,7 @@ define(
                 let _itemListForCreate = [];
                 let _rateFixList = []; // para o pós-ajuste (mesma ordem das linhas criadas)
 
-                // log.debug({ title: 'createPurchaseRequisition - options', details: options})
+                log.debug({ title: 'createPurchaseRequisition - options', details: options })
 
                 // ----- body -----
                 _purchaseRequisitionData[FIELDS.requestor.name] = options.salesRep;
@@ -214,7 +214,9 @@ define(
                 }
 
                 // ----- linhas -----
+                log.debug({ title: 'Linha 217 - createPurchaseRequisition - options.itemList', details: options.itemList });
                 (options.itemList || []).forEach((item) => {
+                    log.debug({ title: 'Linha 219 - createPurchaseRequisition - dontCreateRequisition', details: item.dontCreateRequisition });
                     if (item.dontCreateRequisition === true) return;
 
                     const estCost = num(item.estimatedCostPo, 0);
@@ -473,163 +475,131 @@ define(
             }
         }
 
-        function insertionLine(idPurchaseRequisition, itemsList, idCustomer) {
+        function insertionLine(purchaseRequisitionId, itemList, customerId) {
             try {
-                let _requistionData = record.load({
+                const _purchaseRequisitionRecord = record.load({
                     type: TYPE,
-                    id: idPurchaseRequisition,
-                    isDynamic: true,
+                    id: purchaseRequisitionId,
+                    isDynamic: true
                 });
 
-                // SO vinculada (fallback SLA/Promise)
-                let _soIdFromPR = _requistionData.getValue({ fieldId: FIELDS.salesOrder.name });
+                log.debug({ title: 'linha 484 - insertionLine - purchaseRequisitionId', details: purchaseRequisitionId });
 
-                (itemsList || []).forEach((item) => {
-                    _requistionData.selectNewLine({ sublistId: ITEM_SUBLIST_ID });
+                const _existingLineRefs = new Set();
+                const _lineCount = _purchaseRequisitionRecord.getLineCount({ sublistId: ITEM_SUBLIST_ID });
 
-                    // Item
-                    _requistionData.setCurrentSublistValue({
+                log.debug({ title: 'linha 489 - insertionLine - _lineCount', details: _lineCount });
+
+                for (let _i = 0; _i < _lineCount; _i++) {
+                    const _lineRef = _purchaseRequisitionRecord.getSublistValue({
+                        sublistId: ITEM_SUBLIST_ID,
+                        fieldId: ITEM_SUBLIST_FIELDS.lineReference.name,
+                        line: _i
+                    });
+                    if (_lineRef) {
+                        _existingLineRefs.add(_lineRef);
+                    }
+                }
+
+                const _newItems = itemList.filter(_line =>
+                    !_line.dontCreateRequisition &&
+                    !!_line.lineReference &&
+                    !_existingLineRefs.has(_line.lineReference)
+                );
+
+                log.audit({
+                    title: 'insertionLine - Novos itens a inserir',
+                    details: `Total: ${_newItems.length}`
+                });
+
+                _newItems.forEach(_line => {
+                    _purchaseRequisitionRecord.selectNewLine({ sublistId: ITEM_SUBLIST_ID });
+
+                    _purchaseRequisitionRecord.setCurrentSublistValue({
                         sublistId: ITEM_SUBLIST_ID,
                         fieldId: ITEM_SUBLIST_FIELDS.item.name,
-                        value: item.item.id
+                        value: _line.item
                     });
 
-                    // Cliente
-                    _requistionData.setCurrentSublistValue({
+                    _purchaseRequisitionRecord.setCurrentSublistValue({
+                        sublistId: ITEM_SUBLIST_ID,
+                        fieldId: ITEM_SUBLIST_FIELDS.quantity.name,
+                        value: _line.quantity
+                    });
+
+                    if (_line.estimatedRate) {
+                        _purchaseRequisitionRecord.setCurrentSublistValue({
+                            sublistId: ITEM_SUBLIST_ID,
+                            fieldId: ITEM_SUBLIST_FIELDS.estimatedRate.name,
+                            value: _line.estimatedRate
+                        });
+                    }
+
+                    _purchaseRequisitionRecord.setCurrentSublistValue({
                         sublistId: ITEM_SUBLIST_ID,
                         fieldId: ITEM_SUBLIST_FIELDS.customer.name,
-                        value: idCustomer
+                        value: customerId
                     });
 
-                    // Quantidade
-                    if (item.quantity) {
-                        _requistionData.setCurrentSublistValue({
+                    _purchaseRequisitionRecord.setCurrentSublistValue({
+                        sublistId: ITEM_SUBLIST_ID,
+                        fieldId: ITEM_SUBLIST_FIELDS.lineReference.name,
+                        value: _line.lineReference
+                    });
+
+                    if (_line.memoLine) {
+                        _purchaseRequisitionRecord.setCurrentSublistValue({
                             sublistId: ITEM_SUBLIST_ID,
-                            fieldId: ITEM_SUBLIST_FIELDS.quantity.name,
-                            value: item.quantity
+                            fieldId: ITEM_SUBLIST_FIELDS.memoLine.name,
+                            value: _line.memoLine
                         });
                     }
 
-                    // Unidade
-                    if (item.units) {
-                        _requistionData.setCurrentSublistValue({
-                            sublistId: ITEM_SUBLIST_ID,
-                            fieldId: ITEM_SUBLIST_FIELDS.units.name,
-                            value: item.units
-                        });
-                    }
-
-                    // Vendor
-                    if (item.poVendor) {
-                        _requistionData.setCurrentSublistValue({
-                            sublistId: ITEM_SUBLIST_ID,
-                            fieldId: ITEM_SUBLIST_FIELDS.poVendor.name,
-                            value: item.poVendor.id
-                        });
-                    }
-
-                    // Referência estável (UUID) vinda da SO
-                    let _ref = item[ITEM_SUBLIST_FIELDS.lineReference.name] || item.lineReference;
-                    if (_ref) {
-                        _requistionData.setCurrentSublistValue({
-                            sublistId: ITEM_SUBLIST_ID,
-                            fieldId: ITEM_SUBLIST_FIELDS.lineReference.name,
-                            value: _ref
-                        });
-                    }
-
-                    // Part Number per Customer (custcol_pd_partnumbercustomer)
-                    let _pnCust = item[ITEM_SUBLIST_FIELDS.partNumberCustomer.name] || item.partNumberCustomer;
-                    if (_pnCust) {
-                        _requistionData.setCurrentSublistValue({
+                    if (_line.partNumberCustomer) {
+                        _purchaseRequisitionRecord.setCurrentSublistValue({
                             sublistId: ITEM_SUBLIST_ID,
                             fieldId: ITEM_SUBLIST_FIELDS.partNumberCustomer.name,
-                            value: _pnCust
+                            value: _line.partNumberCustomer
                         });
                     }
 
-                    // SLA (com fallback pela SO e lineUniqueKey)
-                    let _luk = item[ITEM_SUBLIST_FIELDS.lineUniqueKey.name] || item.lineUniqueKey || item.lineuniquekey;
-                    let _sla = item[ITEM_SUBLIST_FIELDS.slaPurchaseOrder.name] || item.slaPurchaseOrder || item.slaPo;
-                    if ((!_sla || _sla === '') && _soIdFromPR) {
-                        _sla = getSlaFromSalesOrderLine(_soIdFromPR, _luk);
-                    }
+                    const _sla = getSlaFromSalesOrderLine(_line.salesOrder, _line.lineUniqueKey);
                     if (_sla) {
-                        _requistionData.setCurrentSublistValue({
+                        _purchaseRequisitionRecord.setCurrentSublistValue({
                             sublistId: ITEM_SUBLIST_ID,
                             fieldId: ITEM_SUBLIST_FIELDS.slaPurchaseOrder.name,
                             value: _sla
                         });
                     }
 
-                    // Promise Date (com fallback pela SO)
-                    let _promise = item[ITEM_SUBLIST_FIELDS.promiseDate.name] || item.promiseDate;
-                    if ((!_promise || _promise === '') && _soIdFromPR) {
-                        _promise = getPromiseFromSalesOrderLine(_soIdFromPR, _luk);
-                    }
-                    if (_promise) {
-                        _requistionData.setCurrentSublistValue({
+                    const _promiseDate = getPromiseFromSalesOrderLine(_line.salesOrder, _line.lineUniqueKey);
+                    if (_promiseDate) {
+                        _purchaseRequisitionRecord.setCurrentSublistValue({
                             sublistId: ITEM_SUBLIST_ID,
                             fieldId: ITEM_SUBLIST_FIELDS.promiseDate.name,
-                            value: _promise
+                            value: _promiseDate
                         });
                     }
 
-                    // Memo de linha (custcol_pd_memoline)
-                    let _memoLine = item.memoLine || item[ITEM_SUBLIST_FIELDS.memoLine.name];
-                    if (_memoLine) {
-                        _requistionData.setCurrentSublistValue({
-                            sublistId: ITEM_SUBLIST_ID,
-                            fieldId: ITEM_SUBLIST_FIELDS.memoLine.name,
-                            value: _memoLine
-                        });
-                    }
-
-                    // Estimated Cost PO
-                    if (item.estimatedCostPo) {
-                        _requistionData.setCurrentSublistValue({
-                            sublistId: ITEM_SUBLIST_ID,
-                            fieldId: ITEM_SUBLIST_FIELDS.estimatedCostPo.name,
-                            value: item.estimatedCostPo
-                        });
-                    }
-
-                    // Status Item
-                    if (item.statusItem) {
-                        _requistionData.setCurrentSublistValue({
-                            sublistId: ITEM_SUBLIST_ID,
-                            fieldId: ITEM_SUBLIST_FIELDS.statusItem.name,
-                            value: item.statusItem
-                        });
-                    }
-
-                    // Prepara o valor de estimatedRate com base em estimatedCostPo
-                    item.estimatedRate = item.estimatedCostPo;
-
-                    // Estimated Rate
-                    if (item.estimatedRate) {
-                        _requistionData.setCurrentSublistValue({
-                            sublistId: ITEM_SUBLIST_ID,
-                            fieldId: ITEM_SUBLIST_FIELDS.estimatedRate.name,
-                            value: item.estimatedRate
-                        });
-                    }
-
-
-                    _requistionData.commitLine({ sublistId: ITEM_SUBLIST_ID });
+                    _purchaseRequisitionRecord.commitLine({ sublistId: ITEM_SUBLIST_ID });
                 });
 
-                let _updatedRequistion = _requistionData.save({
-                    enableSourcing: true,
-                    ignoreMandatoryFields: true
+                _purchaseRequisitionRecord.save();
+
+                log.audit({
+                    title: 'insertionLine - Finalizado com sucesso',
+                    details: `Itens inseridos: ${_newItems.length}`
                 });
 
-                return _updatedRequistion;
-
-            } catch (error) {
-                log.error({ title: 'insertionLine - erro', details: error });
+            } catch (_error) {
+                log.error({
+                    title: 'Erro em insertionLine',
+                    details: _error
+                });
+                throw _error;
             }
         }
+
 
         function hasDifferences(actualItemSales, oldItemSales) {
             try {
@@ -1012,6 +982,23 @@ define(
             }
         }
 
+        function filterItemsToPR(options) {
+            const _filteredSalesOrder = Object.assign({}, options);
+
+            if (!_filteredSalesOrder || !_filteredSalesOrder.itemList) {
+                return _filteredSalesOrder;
+            }
+
+            const _validItems = _filteredSalesOrder.itemList.filter(function (_item) {
+                return _item.dontCreateRequisition !== true;
+            });
+
+            _filteredSalesOrder.itemList = _validItems;
+
+            return _filteredSalesOrder;
+        }
+
+
 
 
         return {
@@ -1028,6 +1015,7 @@ define(
             updatedRequistion: updatedRequistion,
             updateVendor: updateVendor,
             updateFinalCost: updateFinalCost,
-            setFinalCostUnitFromPOToPR: setFinalCostUnitFromPOToPR
+            setFinalCostUnitFromPOToPR: setFinalCostUnitFromPOToPR,
+            filterItemsToPR: filterItemsToPR
         };
     });
