@@ -1,7 +1,8 @@
 /**
  * @NApiVersion 2.1
  * @NModuleScope public
- * @author Project Dome - Rogério Gonçalves Rodrigues
+ * @author
+ * Project Dome - Rogério Gonçalves Rodrigues
  */
 
 define([
@@ -22,59 +23,56 @@ define([
         }
 
         var str = String(value).trim();
-
         if (!str) {
             return null;
         }
 
         if (str.indexOf('T') > -1) {
-            str = str.split('T')[0]; // 2025-12-08
+            str = str.split('T')[0];
         }
 
-        var year, month, day;
-
-        if (str.indexOf('-') > -1) {
-            var partsDash = str.split('-'); // YYYY-MM-DD
-            if (partsDash.length === 3) {
-                year = parseInt(partsDash[0], 10);
-                month = parseInt(partsDash[1], 10) - 1;
-                day = parseInt(partsDash[2], 10);
-                return new Date(year, month, day);
-            }
-        }
-
-        if (str.indexOf('/') > -1) {
-            var partsSlash = str.split('/'); // M/D/YYYY
-            if (partsSlash.length === 3) {
-                month = parseInt(partsSlash[0], 10) - 1;
-                day = parseInt(partsSlash[1], 10);
-                year = parseInt(partsSlash[2], 10);
-                return new Date(year, month, day);
-            }
+        var parts = str.split('-');
+        if (parts.length === 3) {
+            return new Date(
+                parseInt(parts[0], 10),
+                parseInt(parts[1], 10) - 1,
+                parseInt(parts[2], 10)
+            );
         }
 
         return null;
     }
 
+    function normalizeHistorical(historical) {
+        if (!historical) {
+            return null;
+        }
+
+        // Já veio como array de strings (Etapa 2)
+        if (Array.isArray(historical)) {
+            return historical.join('\n\n');
+        }
+
+        // Já veio como string pronta
+        if (typeof historical === 'string') {
+            return historical;
+        }
+
+        // Fallback seguro
+        try {
+            return JSON.stringify(historical);
+        } catch (e) {
+            return String(historical);
+        }
+    }
+
     function createTrackNotification(data) {
         try {
             if (!data) {
-                log.debug({
-                    title: 'createTrackNotification',
-                    details: 'Nenhum dado recebido.'
-                });
                 return null;
             }
 
-            var trackingNumber = data.trackingNumber;
-            var carrier = data.carrier;
-            var originTransaction = data.originTransaction;
-
-            if (!trackingNumber || !carrier || !originTransaction) {
-                log.debug({
-                    title: 'createTrackNotification - validação',
-                    details: 'Campos obrigatórios ausentes (trackingNumber, carrier ou originTransaction). Dados: ' + JSON.stringify(data)
-                });
+            if (!data.trackingNumber || !data.carrier || !data.originTransaction) {
                 return null;
             }
 
@@ -83,6 +81,9 @@ define([
                 isDynamic: false
             });
 
+            // ============================
+            // NAME (já tratado nas etapas anteriores)
+            // ============================
             if (data.name) {
                 notificationRecord.setValue({
                     fieldId: 'name',
@@ -92,12 +93,12 @@ define([
 
             notificationRecord.setValue({
                 fieldId: 'custrecord_pd_tno_tracking_number',
-                value: trackingNumber
+                value: data.trackingNumber
             });
 
             notificationRecord.setValue({
                 fieldId: 'custrecord_pd_tno_carrier',
-                value: carrier
+                value: data.carrier
             });
 
             if (data.status) {
@@ -107,15 +108,11 @@ define([
                 });
             }
 
-            if (data.statusDate) {
-                var statusDateObj = parseDate(data.statusDate);
-                if (statusDateObj) {
-                    notificationRecord.setValue({
-                        fieldId: 'custrecord_pd_tno_status_date',
-                        value: statusDateObj
-                    });
-                }
-            }
+            var statusDateObj = parseDate(data.statusDate) || new Date();
+            notificationRecord.setValue({
+                fieldId: 'custrecord_pd_tno_status_date',
+                value: statusDateObj
+            });
 
             if (data.estimatedDeliveryDate) {
                 var estimatedDateObj = parseDate(data.estimatedDeliveryDate);
@@ -127,20 +124,11 @@ define([
                 }
             }
 
-            if (data.historical) {
-                var historicalValue = data.historical;
-
-                if (typeof historicalValue === 'object') {
-                    try {
-                        historicalValue = JSON.stringify(historicalValue);
-                    } catch (eJson) {
-                        log.debug({
-                            title: 'createTrackNotification - historical stringify',
-                            details: 'Falha ao converter historical para JSON. Usando valor bruto.'
-                        });
-                    }
-                }
-
+            // ============================
+            // HISTORICAL NORMALIZADO
+            // ============================
+            var historicalValue = normalizeHistorical(data.historical);
+            if (historicalValue) {
                 notificationRecord.setValue({
                     fieldId: 'custrecord_pd_tno_historical',
                     value: historicalValue
@@ -149,26 +137,19 @@ define([
 
             notificationRecord.setValue({
                 fieldId: 'custrecord_pd_tno_origin_transaction',
-                value: originTransaction
+                value: data.originTransaction
             });
 
-            var newNotificationId = notificationRecord.save({
+            var newId = notificationRecord.save({
                 enableSourcing: false,
                 ignoreMandatoryFields: true
             });
 
-            log.debug({
-                title: 'createTrackNotification - criado',
-                details: 'ID: ' + newNotificationId + ' | Dados: ' + JSON.stringify(data)
-            });
-
-            return newNotificationId;
+            log.debug('createTrackNotification - criado', newId);
+            return newId;
 
         } catch (error) {
-            log.error({
-                title: 'createTrackNotification - erro inesperado',
-                details: error
-            });
+            log.error('createTrackNotification - erro', error);
             return null;
         }
     }

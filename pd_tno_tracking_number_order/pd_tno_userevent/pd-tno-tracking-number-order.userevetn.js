@@ -20,7 +20,15 @@ define([
     '../pd_tno_service/pd-tno-po-tracking-columns.service.js',
     '../pd_tno_service/pd-tno-track-notification.service.js',
     '../pd_tno_service/pd-tno-track-notification-update.service.js',
-    '../pd_tno_service/pd-tno-track-notification-params.service.js'
+    '../pd_tno_service/pd-tno-track-notification-params.service.js',
+    '../pd_tno_service/pd-tno-track-notification-query.service.js',
+    '../pd_tno_service/pd-tno-register-tracking-number.service.js',
+    '../pd_tno_service/pd-tno-po-tracking-lines.service.js',
+    '../pd_tno_service/pd-tno-track-notification-refresh.service.js',
+    '../pd_tno_service/pd-tno-get-carrier-id-from-map.service',
+    '../pd_tno_service/pd-tno-extract-track-historical.service.js',
+    '../pd_tno_service/pd-tno-build-track-notification-payload.service.js'
+
 ],
     function (
         https,
@@ -35,7 +43,14 @@ define([
         poTrackingColumns_service,
         track_notification_service,
         track_notification_update_service,
-        track_notification_params_service
+        track_notification_params_service,
+        track_notification_query_service,
+        register_tracking_number_service,
+        tracking_lines_service,
+        track_notification_refresh_service,
+        get_carrier_id_service,
+        historical_service,
+        notification_payload_service
 
     ) {
 
@@ -43,211 +58,125 @@ define([
         // const GET_INFORMATION_URL = 'https://api.17track.net/track/v2.4/gettrackinfo';
         const API_TOKEN = '619A48177643591590C8820BEB0B4AA0'; //Criar record type para armazenar valor.
 
+        /**
+        * beforeLoad - Refatorado
+        */
+
         function beforeLoad(context) {
             try {
+                if (context.type !== context.UserEventType.VIEW) return;
 
-                // Só roda no modo VIEW
-                if (context.type !== context.UserEventType.VIEW) {
-                    return;
-                }
+                var newRecord = context.newRecord;
+                var poId = newRecord.id;
+                if (!poId) return;
 
-                const purchaseOrderId = context.newRecord.id;
+                var trackingLines = tracking_lines_service.getTrackingLines(poId);
+                if (!trackingLines || trackingLines.length === 0) return;
 
-                // 1) Buscar dados da PO que serão usados como chave (lineReference, trackingNumber, carrier)
-                const trackingData = gettrackdata_service.getTrackingData(purchaseOrderId);
-                log.debug({
-                    title: 'beforeLoad - trackingData',
-                    details: trackingData
+                var notificationMap = {};
+                trackingLines.forEach(function (line) {
+                    var key = String(line.notificationId);
+                    if (!notificationMap[key]) {
+                        notificationMap[key] = [];
+                    }
+                    notificationMap[key].push(line);
                 });
 
-                if (!trackingData || !trackingData.items || trackingData.items.length === 0) {
-                    log.debug('beforeLoad', 'Nenhuma linha com tracking para processar.');
-                    return;
-                }
+                log.debug('Mapeamento inicial de notificationId por linha', notificationMap);
 
-                // 2) Montar payload FINAL que será enviado para o módulo de atualização
-                const payloadFinal = {
-                    idPurchaseOrder: purchaseOrderId,
-                    items: []
-                };
-
-                // 3) Percorrer cada item retornado pelo serviço
-                trackingData.items.forEach(function (item, index) {
-
-                    const lineReference = item.lineReference;
-                    const trackingNumber = item.trackingNumerLine;
-
-                    // Código numérico do carrier na 17TRACK
-                    const carrierCode = carrier_service.getCarrierCode(item.carrier);
-
-                    log.debug({
-                        title: 'beforeLoad - item tracking #' + index,
-                        details: {
-                            lineReference: lineReference,
-                            trackingNumber: trackingNumber,
-                            carrierOriginal: item.carrier,
-                            carrierCodeConverted: carrierCode
+                Object.keys(notificationMap).forEach(function (notificationId) {
+                    try {
+                        var carrierId = get_carrier_id_service.getCarrierIdFromMap(notificationMap, notificationId);
+                        if (!carrierId) {
+                            log.debug('Carrier ID ausente', { notificationId: notificationId });
+                            return;
                         }
-                    });
 
-                    // ======================= VALIDAÇÕES ============================
+                        var carrierCode = carrier_service.getCarrierCode(carrierId);
+                        if (!carrierCode) {
+                            log.debug('Carrier code não encontrado', { carrierId: carrierId });
+                            return;
+                        }
 
-                    if (!trackingNumber) {
-                        log.debug('beforeLoad - ignorado', 'Sem trackingNumber (lineReference: ' + lineReference + ')');
-                        return;
+                        notificationMap[notificationId][0].carrier = parseInt(carrierCode, 10);
+
+                        log.debug('Carrier code substituído com sucesso', {
+                            notificationId: notificationId,
+                            carrierCode: carrierCode
+                        });
+
+                    } catch (e) {
+                        log.error('Erro ao processar carrier para notificationId: ' + notificationId, e);
                     }
-
-                    if (!lineReference) {
-                        log.debug('beforeLoad - ignorado', 'Sem lineReference (tracking: ' + trackingNumber + ')');
-                        return;
-                    }
-
-                    if (!carrierCode) {
-                        log.debug('beforeLoad - ignorado', 'Sem carrierCode válido para tracking: ' + trackingNumber);
-                        return;
-                    }
-
-                    // =================================================================
-
-                    // 4) Montar entrada para API 17TRACK
-                    const entry = {
-                        number: trackingNumber,
-                        carrier: carrierCode
-                    };
-
-                    log.debug('beforeLoad - getTrackInfo payload enviado', entry);
-
-                    const trackInfoResponse = gettrackinfo_service.getTrackInfo(entry);
-
-                    // 5) Validar retorno da API
-                    const acceptedArray = trackInfoResponse &&
-                        trackInfoResponse.data &&
-                        trackInfoResponse.data.accepted;
-
-                    if (!acceptedArray || !acceptedArray[0]) {
-                        log.debug('beforeLoad - retorno inválido da API', trackInfoResponse);
-                        return;
-                    }
-
-                    const acceptedItem = acceptedArray[0];
-                    const trackInfo = acceptedItem.track_info || {};
-
-                    const latestStatus = trackInfo.latest_status;
-                    const trackingProvider = trackInfo.tracking &&
-                        trackInfo.tracking.providers &&
-                        trackInfo.tracking.providers[0];
-
-                    // 🔹 NOVO: métricas de tempo (estimated delivery)
-                    const timeMetrics = trackInfo.time_metrics;
-                    const estimatedDeliveryTo = timeMetrics &&
-                        timeMetrics.estimated_delivery_date &&
-                        timeMetrics.estimated_delivery_date.to;
-
-                    if (!latestStatus || !trackingProvider) {
-                        log.debug('beforeLoad - retorno incompleto da API', trackInfoResponse);
-                        return;
-                    }
-
-                    // 6) Extrair dados necessários
-                    const status = latestStatus.status;
-                    const subStatus = latestStatus.sub_status;
-                    const latestSyncTime = trackingProvider.latest_sync_time;
-
-                    // 7) Inserir item no payload final
-                    payloadFinal.items.push({
-                        lineReference: lineReference,
-                        status: status + ' - ' + subStatus,
-                        carrier: carrierCode,
-                        latestSyncTime: latestSyncTime,
-                        // 🔹 SEMPRE presente no payload: se não vier nada da API, fica null
-                        estimatedDeliveryDate: (estimatedDeliveryTo === undefined ? null : estimatedDeliveryTo)
-                    });
-
-                    log.debug({
-                        title: 'beforeLoad - payload item #' + index,
-                        details: payloadFinal.items[payloadFinal.items.length - 1]
-                    });
-
                 });
 
-                // 8) Se nada válido foi gerado, encerra
-                if (!payloadFinal.items || payloadFinal.items.length === 0) {
-                    log.debug('beforeLoad', 'Nenhum item válido para atualização da PO.');
-                    return;
-                }
+                Object.keys(notificationMap).forEach(function (notificationId) {
+                    var linha = notificationMap[notificationId][0];
 
-                // 9) Chamar o SERVICE para atualizar a PO
-                const updateResult = update_tracking_service.updatePOTrackingInformation(payloadFinal);
+                    if (!linha || !linha.trackingNumber || !linha.carrier) {
+                        log.debug('Dados insuficientes para montar payload', { notificationId: notificationId });
+                        return;
+                    }
 
-                log.audit('beforeLoad - Atualização da PO via SERVICE', updateResult);
-
-                // ============================
-                // ETAPA: Processar notificações
-                // ============================
-
-                // 1) Obter parâmetros para criação ou atualização
-                var params = track_notification_params_service.getTrackNotificationParams(
-                    purchaseOrderId,
-                    payloadFinal
-                );
-                
-                log.debug('beforeLoad - params', params);
-
-                if (!params) {
-                    log.debug('beforeLoad - Notificações', 'Nenhum parâmetro retornado.');
-                    return;
-                }
-
-                // 2) Criar registros customrecord_pd_tno_track_notification
-                if (params.createItems && params.createItems.length > 0) {
-
-                    var poForCreate = record.load({
-                        type: record.Type.PURCHASE_ORDER,
-                        id: purchaseOrderId,
-                        isDynamic: false
-                    });
-
-                    params.createItems.forEach(function (item) {
-
-                        var newId = track_notification_service.createTrackNotification(item);
-
-                        if (newId) {
-                            poForCreate.setSublistValue({
-                                sublistId: 'item',
-                                fieldId: 'custcol_pd_tno_track_notification_id',
-                                line: item.line,
-                                value: newId
-                            });
-                        }
-                    });
-
-                    poForCreate.save({
-                        enableSourcing: false,
-                        ignoreMandatoryFields: true
-                    });
-
-                    log.audit('beforeLoad - Notificações', 'Registros criados: ' + params.createItems.length);
-                }
-
-                // 3) Atualizar registros existentes de customrecord_pd_tno_track_notification
-                if (params.updateItems && params.updateItems.length > 0) {
-
-                    var updatePayload = {
-                        items: params.updateItems
+                    var payload = {
+                        number: linha.trackingNumber,
+                        carrier: linha.carrier
                     };
 
-                    track_notification_update_service.updateTrackNotifications(updatePayload);
+                    log.debug('Payload montado com sucesso', {
+                        notificationId: notificationId,
+                        payload: payload
+                    });
 
-                    log.audit('beforeLoad - Notificações', 'Registros atualizados: ' + params.updateItems.length);
-                }
+                    try {
+                        var trackingInfo = gettrackinfo_service.getTrackInfo(payload);
 
+                        log.debug('Retorno da API 17Track', {
+                            notificationId: notificationId,
+                            trackingInfo: trackingInfo
+                        });
 
+                        var accepted = trackingInfo?.data?.accepted;
+                        if (!accepted || !accepted.length || !accepted[0].track_info) {
+                            log.debug('Sem dados aceitos na resposta da API', { notificationId: notificationId });
+                            return;
+                        }
+
+                        var milestones = accepted[0].track_info.milestone || [];
+                        var historicalData = historical_service.extractTrackHistorical(milestones);
+
+                        // Construção do payload para atualização do custom record
+                        var payloadUpdate = notification_payload_service.buildPayload({
+                            status: accepted[0].track_info.latest_status?.status || '',
+                            deliveryTo: accepted[0].track_info.time_metrics?.estimated_delivery_date?.to || null,
+                            historicalData: historicalData
+                        });
+
+                        log.debug('Payload para atualização do registro customrecord_pd_tno_track_notification', {
+                            notificationId: notificationId,
+                            payloadUpdate: payloadUpdate
+                        });
+
+                        // Atualização do custom record (sem impactar afterSubmit)
+                        var updateResult = track_notification_update_service.updateSingleNotification(notificationId, payloadUpdate);
+
+                        log.audit('customrecord_pd_tno_track_notification atualizado com sucesso', {
+                            notificationId: notificationId,
+                            result: updateResult
+                        });
+
+                    } catch (e) {
+                        log.error('Erro ao consultar tracking ou atualizar registro', {
+                            notificationId: notificationId,
+                            error: e
+                        });
+                    }
+                });
 
             } catch (error) {
-                log.error('beforeLoad - Erro inesperado', error);
+                log.error('Erro no beforeLoad', error);
             }
         }
-
 
         function afterSubmit(context) {
             try {
@@ -259,7 +188,14 @@ define([
 
                 const poId = context.newRecord.id;
 
-                const trackingData = gettrackdata_service.getTrackingData(poId);
+                // ==========================================================
+                // 1) REGISTRO NA 17TRACK (service novo)
+                // ==========================================================
+
+                const registerResult = register_tracking_number_service.registerTrackingNumbers(poId);
+                const trackingData = registerResult && registerResult.trackingData;
+                const responseRegister = registerResult && registerResult.responseRegister;
+
                 log.debug('afterSubmit - trackingData', trackingData);
 
                 if (!trackingData || !trackingData.items || trackingData.items.length === 0) {
@@ -267,88 +203,63 @@ define([
                     return;
                 }
 
-                const payloadRegister = [];
-
-                trackingData.items.forEach(function (item) {
-
-                    const lineReference = item.lineReference;
-                    const trackingNumber = item.trackingNumerLine;
-                    const carrierCode = carrier_service.getCarrierCode(item.carrier);
-
-                    if (!trackingNumber || !lineReference || !carrierCode) {
-                        return;
-                    }
-
-                    payloadRegister.push({
-                        number: trackingNumber,
-                        carrier: carrierCode
-                    });
-                });
-
-                if (payloadRegister.length === 0) {
-                    log.debug('afterSubmit', 'Nenhum item válido para registro.');
-                    return;
-                }
-
-                const payloadJSON = JSON.stringify(payloadRegister);
-
-                const responseRegister = https.post({
-                    url: API_URL,
-                    headers: {
-                        'Content-Type': 'application/json',
-                        '17token': API_TOKEN
-                    },
-                    body: payloadJSON
-                });
-
-                log.audit('afterSubmit - REGISTER response', {
-                    status: responseRegister.code,
-                    body: responseRegister.body
-                });
-
-                // ============================
-                // ETAPA 1 — montar payload para o service novo
-                // ============================
+                // ==========================================================
+                // 2) ATUALIZAÇÃO DAS COLUNAS DA PO (via pd-tno-register-return.service.js)
+                //    Monta payload e delega atualização para o service
+                // ==========================================================
 
                 const registerReturnPayload = {
                     idPurchaseOrder: poId,
                     items: []
                 };
 
-                if (responseRegister.code === 200) {
+                if (responseRegister && responseRegister.code === 200 && responseRegister.body) {
+                    let parsed = null;
 
-                    const parsed = JSON.parse(responseRegister.body);
+                    try {
+                        parsed = JSON.parse(responseRegister.body);
+                    } catch (parseErr) {
+                        log.error('afterSubmit - erro ao converter JSON de responseRegister', parseErr);
+                    }
 
-                    if (parsed && parsed.code === 0) {
+                    if (parsed && parsed.code === 0 && parsed.data && parsed.data.accepted) {
 
-                        const acceptedArray = parsed.data?.accepted || [];
+                        const acceptedArray = parsed.data.accepted || [];
 
                         acceptedArray.forEach(function (acceptedItem) {
 
                             const trackingNumber = acceptedItem.number;
                             const datetimeNow = new Date().toISOString();
 
-                            const originalItem = trackingData.items.find(function (line) {
+                            const infoMessage = 'Tracking registered successfully\n' + datetimeNow;
+
+                            const trackInfo = acceptedItem.track_info || {};
+                            const timeMetrics = trackInfo.time_metrics;
+                            const estimatedDeliveryTo = timeMetrics &&
+                                timeMetrics.estimated_delivery_date &&
+                                timeMetrics.estimated_delivery_date.to;
+
+                            const matchingItems = (trackingData.items || []).filter(function (line) {
                                 return line.trackingNumerLine === trackingNumber;
                             });
 
-                            if (!originalItem || !originalItem.lineReference) {
-                                return;
-                            }
+                            matchingItems.forEach(function (line) {
+                                if (!line.lineReference) {
+                                    return;
+                                }
 
-                            registerReturnPayload.items.push({
-                                lineReference: originalItem.lineReference,
-                                datetime: datetimeNow
+                                registerReturnPayload.items.push({
+                                    lineReference: line.lineReference,
+                                    datetime: datetimeNow,
+                                    status: infoMessage,
+                                    estimatedDelivery: estimatedDeliveryTo || null
+                                });
                             });
                         });
                     }
                 }
 
                 log.debug('afterSubmit - registerReturnPayload', registerReturnPayload);
-
-                // ============================
-                // ETAPA 3 — chamar o novo service
-                // ============================
 
                 if (registerReturnPayload.items.length > 0) {
                     try {
@@ -359,13 +270,149 @@ define([
                     }
                 }
 
+                // ==========================================================
+                // 3) CRIAÇÃO DO customrecord_pd_tno_track_notification
+                //    + AMARRAÇÃO NA PO (via pd-tno-track-notification.service.js)
+                // ==========================================================
+
+                try {
+                    const poNotif = record.load({
+                        type: record.Type.PURCHASE_ORDER,
+                        id: poId,
+                        isDynamic: false
+                    });
+
+                    const lineCount = poNotif.getLineCount({ sublistId: 'item' });
+                    const createdMap = {}; // key = trackingNumberLine|carrierValue -> notificationId
+
+                    for (let i = 0; i < lineCount; i++) {
+
+                        const trackingNumberLine = poNotif.getSublistValue({
+                            sublistId: 'item',
+                            fieldId: 'custcol_pd_tno_track_nmb_order_line',
+                            line: i
+                        });
+
+                        const carrierValue = poNotif.getSublistValue({
+                            sublistId: 'item',
+                            fieldId: 'custcol_pd_17track_tracking_carrier',
+                            line: i
+                        });
+
+                        log.debug('linha 342 - afterSubmit - carrierValue', carrierValue);
+
+                        // Dados mínimos obrigatórios
+                        if (!trackingNumberLine || !carrierValue) {
+                            continue;
+                        }
+
+                        // Se a linha já tem notificationId, não faz nada
+                        const existingNotifIdOnLine = poNotif.getSublistValue({
+                            sublistId: 'item',
+                            fieldId: 'custcol_pd_tno_track_notification_id',
+                            line: i
+                        });
+
+                        if (existingNotifIdOnLine) {
+                            continue;
+                        }
+
+                        const key = trackingNumberLine + '|' + carrierValue;
+                        let notificationId = createdMap[key] || null;
+
+                        if (!notificationId) {
+
+                            const statusValue = poNotif.getSublistValue({
+                                sublistId: 'item',
+                                fieldId: 'custcol_pd_tno_tracking_status',
+                                line: i
+                            }) || '';
+
+                            const estimatedDateValue = poNotif.getSublistValue({
+                                sublistId: 'item',
+                                fieldId: 'custcol_pd_tno_estimated_delivery_dat',
+                                line: i
+                            }) || null;
+
+                            // ========= AJUSTE DO CAMPO NAME (SEM HORA) =========
+                            // statusValue: "Tracking registered successfully\n2025-12-11T09:12:37.803Z"
+                            let formattedDateOnly = null;
+
+                            try {
+                                const statusLines = statusValue.split('\n');
+                                const lastLine = statusLines[statusLines.length - 1] || '';
+                                formattedDateOnly = lastLine.split('T')[0]; // "2025-12-11"
+                            } catch (eName) {
+                                formattedDateOnly = null;
+                            }
+
+                            let nameValue = 'Tracking registered successfully';
+                            if (formattedDateOnly) {
+                                nameValue += '\n' + formattedDateOnly;
+                            }
+
+                            // Status date (data/hora atual – o parse fino é responsabilidade do service)
+                            const statusDateObj = new Date();
+
+                            // Histórico simples (objeto será convertido em JSON no service)
+                            const historicalObj = {
+                                trackingNumber: trackingNumberLine,
+                                carrier: carrierValue,
+                                status: statusValue,
+                                estimatedDelivery: estimatedDateValue,
+                                statusDate: statusDateObj
+                            };
+
+                            // Criação do custom record via service pd-tno-track-notification.service.js
+                            notificationId = track_notification_service.createTrackNotification({
+                                name: nameValue,
+                                trackingNumber: trackingNumberLine,
+                                carrier: carrierValue,
+                                status: statusValue,
+                                statusDate: statusDateObj,
+                                estimatedDeliveryDate: estimatedDateValue,
+                                historical: historicalObj,
+                                originTransaction: poId
+                            });
+
+                            if (!notificationId) {
+                                continue;
+                            }
+
+                            createdMap[key] = notificationId;
+                        }
+
+                        // Amarra o notificationId na linha atual da PO
+                        poNotif.setSublistValue({
+                            sublistId: 'item',
+                            fieldId: 'custcol_pd_tno_track_notification_id',
+                            line: i,
+                            value: notificationId
+                        });
+                    }
+
+                    if (Object.keys(createdMap).length > 0) {
+                        poNotif.save({
+                            enableSourcing: false,
+                            ignoreMandatoryFields: true
+                        });
+
+                        log.audit('afterSubmit - Track Notification',
+                            'Registros criados/atualizados | Total combinações: ' +
+                            Object.keys(createdMap).length);
+                    } else {
+                        log.debug('afterSubmit - Track Notification',
+                            'Nenhum registro created/updated para customrecord_pd_tno_track_notification.');
+                    }
+
+                } catch (eNotif) {
+                    log.error('afterSubmit - erro ao criar/atualizar customrecord_pd_tno_track_notification', eNotif);
+                }
+
             } catch (error) {
                 log.error('afterSubmit - Erro inesperado', error);
             }
         }
-
-
-
 
 
         return {

@@ -57,10 +57,15 @@ define([
             let updatedLines = 0;
 
             payload.items.forEach(function (item) {
+
                 const lineRef = item.lineReference;
                 const datetime = item.datetime;
 
-                if (!lineRef || !datetime) {
+                // Novos campos opcionais
+                const status = item.status || '';                    // Tracking Status
+                const estimated = item.estimatedDelivery || null;    // Estimated Delivery Date (pode ser null/vazio)
+
+                if (!lineRef) {
                     log.debug('updatePORegisterReturn - Item ignored', item);
                     return;
                 }
@@ -71,8 +76,8 @@ define([
                     return;
                 }
 
-                const message = `Tracking registered successfully\n${datetime}`;
-
+                // === Tracking Informations (já existente) ===
+                const message = 'Tracking registered successfully\n' + (datetime || '');
                 poRecord.setSublistValue({
                     sublistId: 'item',
                     fieldId: 'custcol_pd_track_informations',
@@ -80,11 +85,37 @@ define([
                     value: message
                 });
 
+                // === Tracking Status (novo, mas opcional) ===
+                if (status) {
+                    poRecord.setSublistValue({
+                        sublistId: 'item',
+                        fieldId: 'custcol_pd_tno_tracking_status',
+                        line: lineIndex,
+                        value: status
+                    });
+                }
+
+                // === Estimated Delivery Date (nova, mas opcional e não trava se vier null) ===
+                if (estimated) {
+                    poRecord.setSublistValue({
+                        sublistId: 'item',
+                        fieldId: 'custcol_pd_tno_estimated_delivery_dat',
+                        line: lineIndex,
+                        value: estimated
+                    });
+                }
+
                 updatedLines++;
 
                 log.debug({
                     title: 'updatePORegisterReturn - Updated line',
-                    details: { lineIndex, lineRef, message }
+                    details: {
+                        lineIndex: lineIndex,
+                        lineRef: lineRef,
+                        message: message,
+                        status: status,
+                        estimatedDelivery: estimated
+                    }
                 });
             });
 
@@ -93,7 +124,7 @@ define([
 
                 log.audit({
                     title: 'updatePORegisterReturn',
-                    details: `Updated ${updatedLines} lines | PO ${savedId}`
+                    details: 'Updated ' + updatedLines + ' lines | PO ' + savedId
                 });
             } else {
                 log.debug({

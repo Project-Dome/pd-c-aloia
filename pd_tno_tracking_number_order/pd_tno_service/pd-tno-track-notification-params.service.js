@@ -12,45 +12,37 @@ define([
     log
 ) {
 
-    function formatIsoToMDYYYY(value) {
-        if (!value) {
+    function formatDateToMDYYYY(dateObj) {
+        if (!dateObj || Object.prototype.toString.call(dateObj) !== '[object Date]') {
             return null;
         }
 
-        var str = String(value);
+        var mm = String(dateObj.getMonth() + 1).padStart(2, '0');
+        var dd = String(dateObj.getDate()).padStart(2, '0');
+        var yyyy = dateObj.getFullYear();
 
-        // Se vier com hora, ex: 2025-12-08T14:21:48Z → pega só a parte de data
-        if (str.indexOf('T') > -1) {
-            str = str.split('T')[0]; // 2025-12-08
-        }
-
-        // Espera YYYY-MM-DD
-        if (str.indexOf('-') > -1) {
-            var parts = str.split('-'); // [yyyy, mm, dd]
-            if (parts.length === 3) {
-                var yyyy = parts[0];
-                var mm = String(parseInt(parts[1], 10)); // remove zero à esquerda
-                var dd = String(parseInt(parts[2], 10)); // remove zero à esquerda
-                return mm + '/' + dd + '/' + yyyy;       // M/D/YYYY
-            }
-        }
-
-        return str;
+        return mm + '/' + dd + '/' + yyyy;
     }
 
-    function cloneHistoricalWithFormattedDate(payloadItem) {
-        if (!payloadItem) {
-            return null;
+    function parseDate(value) {
+        if (!value) return null;
+
+        if (Object.prototype.toString.call(value) === '[object Date]') {
+            return value;
         }
 
-        // clone simples
-        var historical = JSON.parse(JSON.stringify(payloadItem));
+        var str = String(value).split('T')[0];
+        var parts = str.split('-');
 
-        if (historical.latestSyncTime) {
-            historical.latestSyncTime = formatIsoToMDYYYY(historical.latestSyncTime);
+        if (parts.length === 3) {
+            return new Date(
+                parseInt(parts[0], 10),
+                parseInt(parts[1], 10) - 1,
+                parseInt(parts[2], 10)
+            );
         }
 
-        return historical;
+        return null;
     }
 
     function getTrackNotificationParams(purchaseOrderId, payloadFinal) {
@@ -65,9 +57,7 @@ define([
                 isDynamic: false
             });
 
-            var itemSublistId = 'item';
-            var lineCount = purchaseOrder.getLineCount({ sublistId: itemSublistId });
-
+            var lineCount = purchaseOrder.getLineCount({ sublistId: 'item' });
             if (!lineCount) {
                 return {
                     purchaseOrderId: purchaseOrderId,
@@ -87,97 +77,88 @@ define([
             var updateItems = [];
 
             for (var line = 0; line < lineCount; line++) {
+
                 var lineReference = purchaseOrder.getSublistValue({
-                    sublistId: itemSublistId,
+                    sublistId: 'item',
                     fieldId: 'custcol_pd_cso_line_reference',
                     line: line
                 });
 
+                if (!lineReference) continue;
+
                 var trackingNumber = purchaseOrder.getSublistValue({
-                    sublistId: itemSublistId,
+                    sublistId: 'item',
                     fieldId: 'custcol_pd_tno_track_nmb_order_line',
                     line: line
                 });
 
                 var carrier = purchaseOrder.getSublistValue({
-                    sublistId: itemSublistId,
+                    sublistId: 'item',
                     fieldId: 'custcol_pd_17track_tracking_carrier',
                     line: line
                 });
 
+                if (!trackingNumber || !carrier) continue;
+
                 var notificationId = purchaseOrder.getSublistValue({
-                    sublistId: itemSublistId,
+                    sublistId: 'item',
                     fieldId: 'custcol_pd_tno_track_notification_id',
                     line: line
                 });
 
                 var status = purchaseOrder.getSublistValue({
-                    sublistId: itemSublistId,
+                    sublistId: 'item',
                     fieldId: 'custcol_pd_tno_tracking_status',
                     line: line
-                });
+                }) || '';
 
-                var estimatedDeliveryColumn = purchaseOrder.getSublistValue({
-                    sublistId: itemSublistId,
-                    fieldId: 'custcol_pd_tno_estimated_delivery_dat',
-                    line: line
-                });
+                var payloadItem = payloadByLineRef[String(lineReference)] || null;
 
-                if (!trackingNumber || !carrier) {
-                    continue;
+                // ============================
+                // STATUS DATE (base)
+                // ============================
+                var statusDate = new Date();
+
+                // ============================
+                // ESTIMATED DELIVERY DATE
+                // ============================
+                var estimatedDateObj = null;
+                var estimatedDateText = null;
+
+                if (payloadItem && payloadItem.estimatedDeliveryDate) {
+                    estimatedDateObj = parseDate(payloadItem.estimatedDeliveryDate);
                 }
 
-                var payloadItem = lineReference && payloadByLineRef[String(lineReference)]
-                    ? payloadByLineRef[String(lineReference)]
-                    : null;
+                if (!estimatedDateObj) {
+                    estimatedDateObj = statusDate;
+                } else {
+                    estimatedDateText = formatDateToMDYYYY(estimatedDateObj);
+                }
 
-                // latestSyncTime → somente data em M/D/YYYY
-                var rawStatusDate = payloadItem ? payloadItem.latestSyncTime : null;
-                var statusDate = formatIsoToMDYYYY(rawStatusDate);
-
-                // estimatedDeliveryDate → também normalizado para M/D/YYYY
-                var rawEstimatedDelivery = (payloadItem && payloadItem.estimatedDeliveryDate !== undefined)
-                    ? payloadItem.estimatedDeliveryDate
-                    : estimatedDeliveryColumn;
-
-                var estimatedDeliveryDate = formatIsoToMDYYYY(rawEstimatedDelivery);
-
-                // histórico com latestSyncTime já formatado
-                var historical = cloneHistoricalWithFormattedDate(payloadItem);
-
-                var name = status || '';
-                if (estimatedDeliveryDate) {
-                    name = name ? (name + ' - ' + estimatedDeliveryDate) : estimatedDeliveryDate;
+                // ============================
+                // NAME (independente)
+                // ============================
+                var name = status;
+                if (estimatedDateText) {
+                    name = status + ' - Estimated Date: ' + estimatedDateText;
                 }
 
                 var baseData = {
-                    line: line,
-                    lineReference: lineReference,
+                    name: name,
                     trackingNumber: trackingNumber,
                     carrier: carrier,
-                    notificationId: notificationId,
                     status: status,
                     statusDate: statusDate,
-                    estimatedDeliveryDate: estimatedDeliveryDate,
-                    historical: historical,
-                    name: name
+                    estimatedDeliveryDate: estimatedDateObj,
+                    historical: payloadItem ? payloadItem.historical : null,
+                    originTransaction: purchaseOrderId
                 };
 
                 if (!notificationId) {
-                    createItems.push({
-                        line: baseData.line,
-                        name: baseData.name,
-                        trackingNumber: baseData.trackingNumber,
-                        carrier: baseData.carrier,
-                        status: baseData.status,
-                        statusDate: baseData.statusDate,
-                        estimatedDeliveryDate: baseData.estimatedDeliveryDate,
-                        historical: baseData.historical,
-                        originTransaction: purchaseOrderId
-                    });
+                    createItems.push(baseData);
                 } else {
                     updateItems.push({
-                        notificationId: baseData.notificationId,
+                        notificationId: notificationId,
                         name: baseData.name,
                         status: baseData.status,
                         statusDate: baseData.statusDate,
@@ -194,10 +175,7 @@ define([
             };
 
         } catch (error) {
-            log.error({
-                title: 'getTrackNotificationParams Error',
-                details: error
-            });
+            log.error('getTrackNotificationParams - erro', error);
             return null;
         }
     }
@@ -205,5 +183,4 @@ define([
     return {
         getTrackNotificationParams: getTrackNotificationParams
     };
-
 });
