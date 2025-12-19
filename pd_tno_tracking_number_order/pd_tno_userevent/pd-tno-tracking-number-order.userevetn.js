@@ -27,7 +27,8 @@ define([
     '../pd_tno_service/pd-tno-track-notification-refresh.service.js',
     '../pd_tno_service/pd-tno-get-carrier-id-from-map.service',
     '../pd_tno_service/pd-tno-extract-track-historical.service.js',
-    '../pd_tno_service/pd-tno-build-track-notification-payload.service.js'
+    '../pd_tno_service/pd-tno-build-track-notification-payload.service.js',
+    '../pd_tno_service/pd-tno-track-notification-active-check.service.js'
 
 ],
     function (
@@ -50,7 +51,8 @@ define([
         track_notification_refresh_service,
         get_carrier_id_service,
         historical_service,
-        notification_payload_service
+        notification_payload_service,
+        notification_active_check_service
 
     ) {
 
@@ -61,7 +63,6 @@ define([
         /**
         * beforeLoad - Refatorado
         */
-
         function beforeLoad(context) {
             try {
                 if (context.type !== context.UserEventType.VIEW) return;
@@ -118,6 +119,20 @@ define([
                         return;
                     }
 
+                    // ============================
+                    // ETAPA 2.2
+                    // Se o custom record estiver INATIVO, não processa
+                    // ============================
+                    var canProcess = notification_active_check_service
+                        .canProcessNotification(notificationId);
+
+                    if (!canProcess) {
+                        log.audit('Tracking Notification inativo - processamento ignorado', {
+                            notificationId: notificationId
+                        });
+                        return; // forEach → return
+                    }
+
                     var payload = {
                         number: linha.trackingNumber,
                         carrier: linha.carrier
@@ -158,7 +173,8 @@ define([
                         });
 
                         // Atualização do custom record (sem impactar afterSubmit)
-                        var updateResult = track_notification_update_service.updateSingleNotification(notificationId, payloadUpdate);
+                        var updateResult = track_notification_update_service
+                            .updateSingleNotification(notificationId, payloadUpdate);
 
                         log.audit('customrecord_pd_tno_track_notification atualizado com sucesso', {
                             notificationId: notificationId,
@@ -177,6 +193,8 @@ define([
                 log.error('Erro no beforeLoad', error);
             }
         }
+
+
 
         function afterSubmit(context) {
             try {

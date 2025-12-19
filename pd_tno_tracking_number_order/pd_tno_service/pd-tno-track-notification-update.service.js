@@ -1,106 +1,125 @@
 /**
  * @NApiVersion 2.1
- * @NModuleScope public
- * @author Project Dome - Rogério Gonçalves Rodrigues
+ * @NModuleScope Public
+ * @author Rogério Gonçalves Rodrigues
  */
 
+define([
+    'N/record',
+    'N/log'
+], function (
+    record,
+    log
+) {
 
-define(['N/record', 'N/log'], function (record, log) {
-
-    function updateTrackNotifications(notifications) {
+    /**
+     * Atualiza um único customrecord_pd_tno_track_notification
+     */
+    function updateSingleNotification(notificationId, payload) {
         try {
-            notifications.forEach(function (notification) {
-                if (!notification || !notification.id || !notification.fields) return;
-
-                var notificationRecord = record.load({
-                    type: 'customrecord_pd_tno_track_notification',
-                    id: notification.id,
-                    isDynamic: false
-                });
-
-                Object.keys(notification.fields).forEach(function (fieldId) {
-                    var value = notification.fields[fieldId];
-
-                    if (value != null) {
-                        notificationRecord.setValue({
-                            fieldId: fieldId,
-                            value: value
-                        });
-                    }
-                });
-
-                notificationRecord.save({
-                    enableSourcing: false,
-                    ignoreMandatoryFields: true
-                });
-
-                log.debug({
-                    title: 'updateTrackNotifications - registro atualizado',
-                    details: 'notificationId: ' + notification.id
-                });
-            });
-
-            return true;
-
-        } catch (error) {
-            log.error({
-                title: 'updateTrackNotifications - erro',
-                details: error
-            });
-            return false;
-        }
-    }
-
-    function updateSingleNotification(notificationId, values) {
-        try {
-            if (!notificationId || !values || typeof values !== 'object') {
-                log.debug({
-                    title: 'updateSingleNotification',
-                    details: 'Parâmetros inválidos: notificationId ou values ausentes/incorretos.'
-                });
-                return false;
+            if (!notificationId || !payload) {
+                return null;
             }
 
-            var notificationRecord = record.load({
-                type: 'customrecord_pd_tno_track_notification',
-                id: notificationId,
-                isDynamic: false
+            var valuesToUpdate = {};
+
+            Object.keys(payload).forEach(function (fieldId) {
+                valuesToUpdate[fieldId] = payload[fieldId];
             });
 
-            Object.keys(values).forEach(function (fieldId) {
-                var value = values[fieldId];
+            // ============================
+            // ETAPA 2.1
+            // Delivered → inativar registro
+            // ============================
+            if (
+                payload.custrecord_pd_tno_status &&
+                String(payload.custrecord_pd_tno_status).toLowerCase() === 'delivered'
+            ) {
+                valuesToUpdate.isinactive = true;
 
-                if (value != null) {
-                    notificationRecord.setValue({
-                        fieldId: fieldId,
-                        value: value
-                    });
+                log.audit('Track Notification encerrado (Delivered)', {
+                    notificationId: notificationId
+                });
+            }
+
+            record.submitFields({
+                type: 'customrecord_pd_tno_track_notification',
+                id: notificationId,
+                values: valuesToUpdate,
+                options: {
+                    enableSourcing: false,
+                    ignoreMandatoryFields: true
                 }
             });
 
-            notificationRecord.save({
-                enableSourcing: false,
-                ignoreMandatoryFields: true
-            });
+            return true;
 
-            log.debug({
-                title: 'updateSingleNotification - registro atualizado',
-                details: 'notificationId: ' + notificationId
+        } catch (error) {
+            log.error('updateSingleNotification - erro', {
+                notificationId: notificationId,
+                error: error
+            });
+            return null;
+        }
+    }
+
+    /**
+     * Atualiza múltiplos customrecord_pd_tno_track_notification
+     */
+    function updateTrackNotifications(notifications) {
+        try {
+            if (!Array.isArray(notifications) || notifications.length === 0) {
+                return null;
+            }
+
+            notifications.forEach(function (item) {
+
+                if (!item.notificationId || !item.payload) {
+                    return;
+                }
+
+                var valuesToUpdate = {};
+
+                Object.keys(item.payload).forEach(function (fieldId) {
+                    valuesToUpdate[fieldId] = item.payload[fieldId];
+                });
+
+                // ============================
+                // ETAPA 2.1
+                // Delivered → inativar registro
+                // ============================
+                if (
+                    item.payload.custrecord_pd_tno_status &&
+                    String(item.payload.custrecord_pd_tno_status).toLowerCase() === 'delivered'
+                ) {
+                    valuesToUpdate.isinactive = true;
+
+                    log.audit('Track Notification encerrado (Delivered)', {
+                        notificationId: item.notificationId
+                    });
+                }
+
+                record.submitFields({
+                    type: 'customrecord_pd_tno_track_notification',
+                    id: item.notificationId,
+                    values: valuesToUpdate,
+                    options: {
+                        enableSourcing: false,
+                        ignoreMandatoryFields: true
+                    }
+                });
             });
 
             return true;
 
         } catch (error) {
-            log.error({
-                title: 'updateSingleNotification - erro',
-                details: error
-            });
-            return false;
+            log.error('updateTrackNotifications - erro', error);
+            return null;
         }
     }
 
     return {
-        updateTrackNotifications: updateTrackNotifications,
-        updateSingleNotification: updateSingleNotification
+        updateSingleNotification: updateSingleNotification,
+        updateTrackNotifications: updateTrackNotifications
     };
 });

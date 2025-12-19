@@ -13,7 +13,7 @@ define([], function () {
             return '';
         }
 
-        var blocks = [];
+        var lines = [];
 
         milestones.forEach(function (stage) {
 
@@ -21,7 +21,7 @@ define([], function () {
                 return;
             }
 
-            // Exemplo time_iso: 2025-12-17T11:59:04-03:00
+            // Exemplo: 2025-12-17T11:59:04-03:00
             var timeIso = String(stage.time_iso);
             var parts = timeIso.split('T');
 
@@ -43,19 +43,19 @@ define([], function () {
             // ============================
             var hour = '';
             if (parts[1]) {
-                // 11:59:04-03:00 → 11:59
                 hour = parts[1].substring(0, 5);
             }
 
-            blocks.push(
-                'Stage: ' + stage.key_stage + '\n' +
-                'Date: ' + date + '\n' +
-                'Hour: ' + hour
+            // ============================
+            // FORMATO FINAL (linha única)
+            // ============================
+            lines.push(
+                stage.key_stage + ' - ' + date + ' - ' + hour
             );
         });
 
-        // Retorna UMA STRING final (sem aspas, sem JSON)
-        return blocks.join('\n\n');
+        // Cada stage em uma linha
+        return lines.join('\n');
     }
 
     return {
