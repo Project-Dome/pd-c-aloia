@@ -13,6 +13,9 @@ define([
 ) {
 
     function existsNotification(carrierCode, trackingNumber) {
+        log.debug('linha 16 - existsNotification - carrierCode', carrierCode);
+        log.debug('linha 17 - existsNotification - trackingNumber', trackingNumber);
+
         try {
             if (!carrierCode || !trackingNumber) {
                 return {
@@ -21,20 +24,29 @@ define([
                 };
             }
 
+            // var sql = `
+            //     SELECT id
+            //     FROM customrecord_pd_tno_track_notification
+            //     WHERE custrecord_pd_tno_tracking_number = ?
+            //       AND custrecord_pd_tno_carrier = ?
+            //     ORDER BY id DESC
+            // `;
+
             var sql = `
                 SELECT id
                 FROM customrecord_pd_tno_track_notification
                 WHERE custrecord_pd_tno_tracking_number = ?
-                  AND custrecord_pd_tno_carrier = ?
                 ORDER BY id DESC
             `;
 
             var resultSet = query.runSuiteQL({
                 query: sql,
-                params: [trackingNumber, carrierCode]
+                // params: [trackingNumber, carrierCode]
+                params: [trackingNumber]
             });
 
             var results = resultSet.asMappedResults() || [];
+            log.debug('linha 48 - existsNotification - results', results);
 
             if (results.length > 0 && results[0].id) {
                 return {
