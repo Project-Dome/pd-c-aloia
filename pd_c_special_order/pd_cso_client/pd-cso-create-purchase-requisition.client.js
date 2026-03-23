@@ -10,13 +10,15 @@ define(
         'N/currentRecord',
         'N/url',
         'N/https',
-        'N/ui/dialog'
+        'N/ui/dialog',
+        'N/log'
     ],
     function (
         currentRecord,
         url,
         https,
-        dialog
+        dialog,
+        log
     ) {
 
         function createPurchaseRequisition() {
@@ -27,8 +29,8 @@ define(
 
                 if (!_idSalesOrder) {
                     dialog.alert({
-                        title: 'Atenção',
-                        message: 'Salve a Sales Order antes de criar a Purchase Requisition.'
+                        title: 'Warning',
+                        message: 'Please save the Sales Order before creating the Purchase Requisition.'
                     });
                     return;
                 }
@@ -39,15 +41,15 @@ define(
 
                 if (_purchaseRequisition) {
                     dialog.alert({
-                        title: 'Atenção',
-                        message: 'Já existe uma Purchase Requisition vinculada a esta Sales Order.'
+                        title: 'Warning',
+                        message: 'A Purchase Requisition is already linked to this Sales Order.'
                     });
                     return;
                 }
 
                 dialog.confirm({
-                    title: 'Confirmação',
-                    message: 'Deseja criar a Purchase Requisition?'
+                    title: 'Confirmation',
+                    message: 'Do you want to create a Purchase Requisition?'
                 }).then(function (_confirmed) {
 
                     if (!_confirmed) {
@@ -70,8 +72,8 @@ define(
 
                     if (_body.success === true) {
                         dialog.alert({
-                            title: 'Sucesso',
-                            message: 'Purchase Requisition criada com sucesso.'
+                            title: 'Success',
+                            message: 'Purchase Requisition created successfully.'
                         }).then(function () {
                             window.location.reload();
                         });
@@ -79,8 +81,8 @@ define(
                     }
 
                     dialog.alert({
-                        title: 'Erro',
-                        message: _body.message || 'Erro ao criar Purchase Requisition.'
+                        title: 'Error',
+                        message: _body.message || 'Error creating Purchase Requisition.'
                     });
 
                 }).catch(function (_error) {
@@ -91,14 +93,29 @@ define(
                 console.log('_error createPurchaseRequisition', _error);
 
                 dialog.alert({
-                    title: 'Erro',
-                    message: 'Ocorreu um erro ao executar a criação da Purchase Requisition.'
+                    title: 'Error',
+                    message: 'An error occurred while creating the Purchase Requisition.'
+                });
+            }
+        }
+
+        function pageInit(context) {
+            try {
+                log.audit({
+                    title: 'Aloia Client Script',
+                    details: 'pageInit executado'
+                });
+            } catch (error) {
+                log.error({
+                    title: 'pageInit - erro', 
+                    details: error
                 });
             }
         }
 
         return {
+            pageInit: pageInit,
             createPurchaseRequisition: createPurchaseRequisition
-        };
+        }
 
     });
