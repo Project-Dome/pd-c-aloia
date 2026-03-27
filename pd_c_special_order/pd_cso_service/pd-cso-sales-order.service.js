@@ -10,6 +10,7 @@ define([
     'N/log',
     'N/error',
     'N/runtime',
+    'N/search',
 
     '../pd_cso_service/pd-cso-purchase-order.service',
 
@@ -23,6 +24,7 @@ define([
     log,
     error,
     runtime,
+    search,
 
     purchase_order_service,
 
@@ -237,39 +239,6 @@ define([
         }
     }
 
-    // function syncLinkedOrders(purchaseRequisitionData, salesOrderData) {
-    //     try {
-
-    //         log.debug({ title: 'syncLinkedOrders - dados recebidos da sales order', details: salesOrderData });
-    //         log.debug({ title: 'syncLinkedOrders - dados recebidos da purchase requisition', details: purchaseRequisitionData });
-
-    //         const _linkedOrderMap = purchaseRequisitionData.itemList
-    //             .map((item, index) => ({
-    //                 index,
-    //                 linkedOrder: item.linkedOrder
-    //             }))
-    //             .filter(entry => entry.linkedOrder && entry.linkedOrder.length > 0);
-
-    //         _linkedOrderMap.forEach(entry => {
-    //             const { index, linkedOrder } = entry;
-
-    //             if (salesOrderData.itemList[index]) {
-    //                 salesOrderData.itemList[index].purchaseOrderLinked = linkedOrder[0];
-    //                 salesOrderData.itemList[index].purchaseRequisition = {
-    //                     id: purchaseRequisitionData.id
-    //                 };
-    //             }
-    //         });
-
-    //         //log.debug({ title: 'syncLinkedOrders - dados moficados na sales order', details: `id sales order: ${salesOrderData.id} ` });
-    //         //log.debug({ title: 'syncLinkedOrders - lista de itens moficada na sales order', details: salesOrderData.itemList });
-
-    //         return salesOrderData;
-
-    //     } catch (error) {
-    //         log.error({ title: 'Linha 200 - syncLinkedOrders - Erro de processameto ', details: error })
-    //     }
-    // }
 
 
     function validateItems(options) {
@@ -580,33 +549,7 @@ define([
      * Calcula delta entre itens antigos e atuais da SO, via lineReference
      * Retorna { itemsToInsert, refsToRemove }
      */
-    // function computeDeltaForPR(newItemList, oldItemList) {
-    //     try {
-    //         let _newIdx = indexByRef(newItemList || []);
-    //         let _oldIdx = indexByRef(oldItemList || []);
 
-    //         // refs removidas
-    //         let _refsToRemove = [];
-    //         Object.keys(_oldIdx).forEach(function (ref) {
-    //             if (!_newIdx[ref]) {
-    //                 _refsToRemove.push(ref);
-    //             }
-    //         });
-
-    //         // linhas novas
-    //         let _itemsToInsert = [];
-    //         Object.keys(_newIdx).forEach(function (ref) {
-    //             if (!_oldIdx[ref]) {
-    //                 _itemsToInsert.push(mapSoLineForPr(_newIdx[ref]));
-    //             }
-    //         });
-
-    //         return { itemsToInsert: _itemsToInsert, refsToRemove: _refsToRemove };
-    //     } catch (error) {
-    //         log.error({ title: 'computeDeltaForPR - erro', details: error });
-    //         return { itemsToInsert: [], refsToRemove: [] };
-    //     }
-    // }
 
     function computeDeltaForPR(newItemList, oldItemList) {
         const _newRefs = new Set();
@@ -800,9 +743,8 @@ define([
      * Atualiza os campos "BUYER PURCHASE ORDER" e "FINAL COST PO"
      * nos itens da Sales Order, com base nos dados processados pela syncLinkedOrders.
      *
-     * @param {number|string} salesOrderId
-     * @param {Array} updatedItemList - itemList com campos purchaseOrderLinked e purchaseRequisition
      */
+
     function updateSalesOrderLineFields(salesOrderId, updatedItemList) {
         try {
             const soRecord = record.load({
@@ -1082,7 +1024,137 @@ define([
         }
     }
 
+    // ^ - Fluxo de atualizaão special order PO SO
+    function isSalesOrder(transactionId) {
+        try {
+            if (!transactionId) {
+                return false;
+            }
 
+            var _type = search.lookupFields({
+                type: search.Type.TRANSACTION,
+                id: transactionId,
+                columns: ['recordtype']
+            });
+
+            return _type && _type.recordtype === 'salesorder';
+
+        } catch (error) {
+            log.error({
+                title: 'isSalesOrder - error',
+                details: error
+            });
+            return false;
+        }
+    }
+
+    function applyPurchaseOrderToSalesOrderSync(payload) {
+        try {
+            log.debug({
+                title: 'applyPurchaseOrderToSalesOrderSync - payload',
+                details: payload
+            });
+
+            if (!payload || !payload.salesOrderId) {
+                return false;
+            }
+
+            const _salesOrderRecord = record.load({
+                type: record.Type.SALES_ORDER,
+                id: payload.salesOrderId,
+                isDynamic: false
+            });
+
+            const _lineCount = _salesOrderRecord.getLineCount({
+                sublistId: 'item'
+            });
+
+            (payload.lines || []).forEach(function (_payloadLine) {
+                const _payloadLineReference = _payloadLine.lineReference;
+
+                if (!_payloadLineReference) {
+                    log.debug({
+                        title: 'applyPurchaseOrderToSalesOrderSync - lineReference vazio',
+                        details: _payloadLine
+                    });
+                    return;
+                }
+
+                for (let i = 0; i < _lineCount; i++) {
+                    const _salesOrderLineReference = _salesOrderRecord.getSublistValue({
+                        sublistId: 'item',
+                        fieldId: 'custcol_pd_cso_line_reference',
+                        line: i
+                    });
+
+                    if (_salesOrderLineReference != _payloadLineReference) {
+                        continue;
+                    }
+
+                    _salesOrderRecord.setSublistValue({
+                        sublistId: 'item',
+                        fieldId: 'custcol_aae_purchaseorder',
+                        line: i,
+                        value: payload.purchaseOrderId
+                    });
+
+                    _salesOrderRecord.setSublistValue({
+                        sublistId: 'item',
+                        fieldId: 'custcol_pd_pow_purchord_vendor',
+                        line: i,
+                        value: payload.vendor || ''
+                    });
+
+                    if (payload.buyer) {
+                        _salesOrderRecord.setSublistValue({
+                            sublistId: 'item',
+                            fieldId: 'custcol_aae_buyer_purchase_order',
+                            line: i,
+                            value: payload.buyer
+                        });
+                    }
+
+                    if (payload.buyer === '' || payload.buyer === null) {
+                        // mantém em branco se não vier valor
+                    }
+
+                    if (_payloadLine.finalCostPo !== undefined && _payloadLine.finalCostPo !== null && _payloadLine.finalCostPo !== '') {
+                        _salesOrderRecord.setSublistValue({
+                            sublistId: 'item',
+                            fieldId: 'custcol_aae_final_cost_po',
+                            line: i,
+                            value: _payloadLine.finalCostPo
+                        });
+                    }
+
+                    if (_payloadLine.finalCostPoUn !== undefined && _payloadLine.finalCostPoUn !== null) {
+                        _salesOrderRecord.setSublistValue({
+                            sublistId: 'item',
+                            fieldId: 'custcol_pd_final_cost_po_un',
+                            line: i,
+                            value: parseFloat(_payloadLine.finalCostPoUn)
+                        });
+                    }
+
+                    break;
+                }
+            });
+
+            _salesOrderRecord.save({
+                enableSourcing: true,
+                ignoreMandatoryFields: true
+            });
+
+            return true;
+
+        } catch (error) {
+            log.error({
+                title: 'applyPurchaseOrderToSalesOrderSync - error',
+                details: error
+            });
+            return false;
+        }
+    }
 
     return {
         generateUUID: generateUUID,
@@ -1101,7 +1173,9 @@ define([
         updateTransactionsFromPO: updateTransactionsFromPO,
         setFinalCostUnitFromPOToSO: setFinalCostUnitFromPOToSO,
         updateEstimatedCostTotalPerLine: updateEstimatedCostTotalPerLine,
-        applyEstimatedCostTotal: applyEstimatedCostTotal
+        applyEstimatedCostTotal: applyEstimatedCostTotal,
+        isSalesOrder: isSalesOrder,
+        applyPurchaseOrderToSalesOrderSync: applyPurchaseOrderToSalesOrderSync
 
     }
 });
