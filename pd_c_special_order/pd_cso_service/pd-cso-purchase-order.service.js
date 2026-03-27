@@ -52,7 +52,8 @@ define(
             buyer: { name: 'custcol_aae_buyer_purchase_order' },
             finalCostPoUn: { name: 'custcol_pd_final_cost_po_un' },
             estimatedCostTot: { name: 'custcol_pd_estimated_cost_tot' },
-            idSalesOrder: { name: 'custcol_pd_sales_order_linked' }
+            idSalesOrder: { name: 'custcol_pd_sales_order_linked' },
+            rate: { name: 'rate' }
         };
 
 
@@ -290,6 +291,74 @@ define(
             return purchOrdArr;
         }
 
+        // ^ - Função fluxo PO -> SO
+        function buildPurchaseOrderToSalesOrderSyncPayload(options) {
+            try {
+
+                log.debug({
+                    title: 'buildPurchaseOrderToSalesOrderSyncPayload - options',
+                    details: options
+                });
+
+                const _purchaseOrderId = options.purchaseOrderId;
+                const _salesOrderId = options.salesOrderId;
+
+                if (!_purchaseOrderId) {
+                    return null;
+                }
+
+                const _purchaseOrderRecord = record.load({
+                    type: record.Type.PURCHASE_ORDER,
+                    id: _purchaseOrderId,
+                    isDynamic: false
+                });
+
+                const _purchaseOrderData = readData(_purchaseOrderRecord);
+
+                if (!_purchaseOrderData) {
+                    return null;
+                }
+
+                const _vendor = _purchaseOrderData.vendor && _purchaseOrderData.vendor.id
+                    ? _purchaseOrderData.vendor.id
+                    : _purchaseOrderData.vendor || '';
+
+                const _buyer = _purchaseOrderData.buyer && _purchaseOrderData.buyer.id
+                    ? _purchaseOrderData.buyer.id
+                    : _purchaseOrderData.buyer || '';
+
+                const _payload = {
+                    purchaseOrderId: _purchaseOrderId,
+                    salesOrderId: _salesOrderId,
+                    vendor: _vendor,
+                    buyer: _buyer,
+                    lines: []
+                };
+
+                (_purchaseOrderData.itemList || []).forEach(function (_line) {
+                    _payload.lines.push({
+                        lineReference: _line.lineReference || '',
+                        finalCostPo: _line.grossAmt || '',
+                        finalCostPoUn: _line.rate || '',
+                        buyer: _buyer
+                    });
+                });
+
+                log.debug({
+                    title: 'buildPurchaseOrderToSalesOrderSyncPayload - payload',
+                    details: _payload
+                });
+
+                return _payload;
+
+            } catch (error) {
+                log.error({
+                    title: 'buildPurchaseOrderToSalesOrderSyncPayload - error',
+                    details: error
+                });
+            }
+        }
+
 
 
         return {
@@ -300,6 +369,7 @@ define(
             propagateFinalCost: propagateFinalCost,
             updateFinalCostPoUnFromRate: updateFinalCostPoUnFromRate,
             purchaseOrderData: purchaseOrderData,
-            purchOrderRecords: purchOrderRecords
+            purchOrderRecords: purchOrderRecords,
+            buildPurchaseOrderToSalesOrderSyncPayload: buildPurchaseOrderToSalesOrderSyncPayload
         }
     });
