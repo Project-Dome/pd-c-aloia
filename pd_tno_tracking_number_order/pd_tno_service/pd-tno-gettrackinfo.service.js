@@ -16,7 +16,8 @@ define(
     ) {
 
         var GETTRACKINFO_URL = 'https://api.17track.net/track/v2.4/gettrackinfo';
-        var API_TOKEN = '619A48177643591590C8820BEB0B4AA0'; // configurar token válido da 17TRACK
+        var API_TOKEN = '06DFC2BE751424BCF3B7EE9481C64058'; //* configurar token válido da 17TRACK
+        
 
         function getTrackInfo(entry) {
             try {
