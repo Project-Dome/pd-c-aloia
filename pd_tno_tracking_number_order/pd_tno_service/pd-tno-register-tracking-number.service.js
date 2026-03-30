@@ -30,7 +30,9 @@ define([
 ) {
 
     const API_URL = 'https://api.17track.net/track/v2.4/register';
-    const API_TOKEN = '619A48177643591590C8820BEB0B4AA0';
+
+    
+    const API_TOKEN = '06DFC2BE751424BCF3B7EE9481C64058';
 
     function registerTrackingNumbers(poId) {
         try {
