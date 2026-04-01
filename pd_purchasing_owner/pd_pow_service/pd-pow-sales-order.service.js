@@ -70,93 +70,103 @@ define(
             }
         }
 
-        function assignBuyerToSO(idSalesOrder, options) {
-            try {
-                const forceRedistribution = options && options.forceRedistribution;
+      function assignBuyerToSO(idSalesOrder, options) {
+    try {
 
-                let _soLookup = search.lookupFields({
-                    type: TYPE,
-                    id: idSalesOrder,
-                    columns: [FIELDS.buyer.name]
+        // 🔒 Autoproteção: não atribuir buyer se todas as linhas estiverem marcadas
+        if (shouldSkipBuyerAssignment(idSalesOrder)) {
+            log.debug({
+                title: 'assignBuyerToSO - Skipped',
+                details: `Sales Order ${idSalesOrder} marcada para não criar PR/PO em todas as linhas`
+            });
+            return null;
+        }
+
+        const forceRedistribution = options && options.forceRedistribution;
+
+        let _soLookup = search.lookupFields({
+            type: TYPE,
+            id: idSalesOrder,
+            columns: [FIELDS.buyer.name]
+        });
+
+        let _currentBuyer = (_soLookup &&
+            _soLookup[FIELDS.buyer.name] &&
+            _soLookup[FIELDS.buyer.name].length)
+            ? _soLookup[FIELDS.buyer.name][0].value
+            : null;
+
+        if (_currentBuyer) {
+            let _employeeRec = record.load({
+                type: record.Type.EMPLOYEE,
+                id: _currentBuyer
+            });
+
+            let _isOnLeave = _employeeRec.getValue({
+                fieldId: EMPLOYEE_FIELDS.onLeave
+            });
+
+            if (!forceRedistribution || !_isOnLeave) {
+                return _currentBuyer;
+            }
+
+            let _oldCount = parseInt(_employeeRec.getValue({
+                fieldId: EMPLOYEE_FIELDS.salesAssignedToday
+            }), 10) || 0;
+
+            if (_oldCount > 0) {
+                _employeeRec.setValue({
+                    fieldId: EMPLOYEE_FIELDS.salesAssignedToday,
+                    value: _oldCount - 1
                 });
 
-                let _currentBuyer = (_soLookup &&
-                    _soLookup[FIELDS.buyer.name] &&
-                    _soLookup[FIELDS.buyer.name].length)
-                    ? _soLookup[FIELDS.buyer.name][0].value
-                    : null;
-
-                if (_currentBuyer) {
-                    let _employeeRec = record.load({
-                        type: record.Type.EMPLOYEE,
-                        id: _currentBuyer
-                    });
-
-                    let _isOnLeave = _employeeRec.getValue({
-                        fieldId: EMPLOYEE_FIELDS.onLeave
-                    });
-
-                    if (!forceRedistribution || !_isOnLeave) {
-                        return _currentBuyer;
-                    }
-
-                    let _oldCount = parseInt(_employeeRec.getValue({
-                        fieldId: EMPLOYEE_FIELDS.salesAssignedToday
-                    }), 10) || 0;
-
-                    if (_oldCount > 0) {
-                        _employeeRec.setValue({
-                            fieldId: EMPLOYEE_FIELDS.salesAssignedToday,
-                            value: _oldCount - 1
-                        });
-
-                        _employeeRec.save({
-                            enableSourcing: false,
-                            ignoreMandatoryFields: true
-                        });
-                    }
-                }
-
-                let _buyers = getEligibleBuyers();
-
-                if (!_buyers || _buyers.length === 0) {
-                    log.debug({
-                        title: 'assignBuyerToSO - No eligible buyers',
-                        details: `No eligible buyers found for Sales Order ${idSalesOrder}`
-                    });
-                    return null;
-                }
-
-                let _filteredBuyers = applyUrgencyRules(_buyers);
-
-                let _chosenBuyer = pickBuyerByLeastLoad(_filteredBuyers);
-
-                if (!_chosenBuyer) {
-                    log.debug({
-                        title: 'assignBuyerToSO - No chosen buyer',
-                        details: `No buyer selected for Sales Order ${idSalesOrder}`
-                    });
-                    return null;
-                }
-
-                updateSOBuyer(idSalesOrder, _chosenBuyer.id);
-                incrementBuyerCounter(_chosenBuyer.id);
-
-                log.debug({
-                    title: 'assignBuyerToSO - Buyer assigned',
-                    details: `Sales Order ${idSalesOrder} -> Buyer ${_chosenBuyer.id}`
+                _employeeRec.save({
+                    enableSourcing: false,
+                    ignoreMandatoryFields: true
                 });
-
-                return _chosenBuyer.id;
-
-            } catch (error) {
-                log.error({
-                    title: 'assignBuyerToSO - Error processing',
-                    details: error
-                });
-                return null;
             }
         }
+
+        let _buyers = getEligibleBuyers();
+
+        if (!_buyers || _buyers.length === 0) {
+            log.debug({
+                title: 'assignBuyerToSO - No eligible buyers',
+                details: `No eligible buyers found for Sales Order ${idSalesOrder}`
+            });
+            return null;
+        }
+
+        let _filteredBuyers = applyUrgencyRules(_buyers);
+
+        let _chosenBuyer = pickBuyerByLeastLoad(_filteredBuyers);
+
+        if (!_chosenBuyer) {
+            log.debug({
+                title: 'assignBuyerToSO - No chosen buyer',
+                details: `No buyer selected for Sales Order ${idSalesOrder}`
+            });
+            return null;
+        }
+
+        updateSOBuyer(idSalesOrder, _chosenBuyer.id);
+        incrementBuyerCounter(_chosenBuyer.id);
+
+        log.debug({
+            title: 'assignBuyerToSO - Buyer assigned',
+            details: `Sales Order ${idSalesOrder} -> Buyer ${_chosenBuyer.id}`
+        });
+
+        return _chosenBuyer.id;
+
+    } catch (error) {
+        log.error({
+            title: 'assignBuyerToSO - Error processing',
+            details: error
+        });
+        return null;
+    }
+}
 
         function getEligibleBuyers() {
             try {
@@ -536,6 +546,53 @@ define(
             } catch (error) {
                 log.error({
                     title: 'isNowInShift - Error processing',
+                    details: error
+                });
+                return false;
+            }
+        }
+
+        function shouldSkipBuyerAssignment(salesOrderId) {
+            try {
+                if (!salesOrderId) return false;
+
+                let _soSearch = search.create({
+                    type: search.Type.SALES_ORDER,
+                    filters: [
+                        ['internalid', 'anyof', salesOrderId],
+                        'AND',
+                        ['mainline', 'is', 'F'] // garante nível de linha (itens)
+                    ],
+                    columns: [
+                        'custcol_pd_cso_dont_create_purchreq'
+                    ]
+                });
+
+                let _hasLines = false;
+                let _allLinesMarked = true;
+
+                _soSearch.run().each(function (result) {
+                    _hasLines = true;
+
+                    let _flag = result.getValue('custcol_pd_cso_dont_create_purchreq');
+
+                    // Se encontrar pelo menos uma linha NÃO marcada como true
+                    if (_flag !== true && _flag !== 'T') {
+                        _allLinesMarked = false;
+                        return false; // break loop
+                    }
+
+                    return true;
+                });
+
+                // Se não tem linhas, não bloqueia
+                if (!_hasLines) return false;
+
+                return _allLinesMarked;
+
+            } catch (error) {
+                log.error({
+                    title: 'shouldSkipBuyerAssignment - Error processing',
                     details: error
                 });
                 return false;
