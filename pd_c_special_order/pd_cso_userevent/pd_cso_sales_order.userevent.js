@@ -250,11 +250,28 @@ define(
                             const _purchaseRequisitionDataFull = purchase_requisition_service.getRequisitionData(_idPurchaseRequisition);
                             const _requistion = purchase_requisition_service.readData(_purchaseRequisitionDataFull);
 
-                            // ============================================================
+
                             //^ NOVA LÓGICA: sincronização por referência
-                            // ============================================================
+
                             const _oRecord = context.oldRecord;
                             const _oldSalesOrderData = sales_order_service.readData(_oRecord);
+
+                            //^ - comparando comprador  antigo com o novo
+                            const _newBuyer = _salesOrderData.buyer && _salesOrderData.buyer.id;
+                            const _oldBuyer = _oldSalesOrderData.buyer && _oldSalesOrderData.buyer.id;
+
+                            if (_newBuyer != _oldBuyer) {
+                                const _updateBuyer = purchase_requisition_service.updateBuyer(
+                                    _idPurchaseRequisition,
+                                    _newBuyer
+                                );
+
+                                log.debug({
+                                    title: 'afterSubmit - updateBuyer (PR)',
+                                    details: _updateBuyer
+                                });
+                            }
+                            //^ - Fim da comparção comprador antigo com o novo
 
                             let _delta = sales_order_service.computeDeltaForPR(
                                 _salesOrderData.itemList,
