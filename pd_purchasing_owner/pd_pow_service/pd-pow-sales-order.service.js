@@ -553,51 +553,45 @@ define(
         }
 
         function shouldSkipBuyerAssignment(salesOrderId) {
-            try {
-                if (!salesOrderId) return false;
+    try {
+        if (!salesOrderId) return false;
 
-                let _soSearch = search.create({
-                    type: search.Type.SALES_ORDER,
-                    filters: [
-                        ['internalid', 'anyof', salesOrderId],
-                        'AND',
-                        ['mainline', 'is', 'F'] // garante nível de linha (itens)
-                    ],
-                    columns: [
-                        'custcol_pd_cso_dont_create_purchreq'
-                    ]
-                });
+        let _salesOrderRec = record.load({
+            type: record.Type.SALES_ORDER,
+            id: salesOrderId,
+            isDynamic: false
+        });
 
-                let _hasLines = false;
-                let _allLinesMarked = true;
+        let _lineCount = _salesOrderRec.getLineCount({
+            sublistId: 'item'
+        });
 
-                _soSearch.run().each(function (result) {
-                    _hasLines = true;
+        if (!_lineCount || _lineCount === 0) {
+            return false;
+        }
 
-                    let _flag = result.getValue('custcol_pd_cso_dont_create_purchreq');
+        for (let i = 0; i < _lineCount; i++) {
+            let _flag = _salesOrderRec.getSublistValue({
+                sublistId: 'item',
+                fieldId: 'custcol_pd_cso_dont_create_purchreq',
+                line: i
+            });
 
-                    // Se encontrar pelo menos uma linha NÃO marcada como true
-                    if (_flag !== true && _flag !== 'T') {
-                        _allLinesMarked = false;
-                        return false; // break loop
-                    }
-
-                    return true;
-                });
-
-                // Se não tem linhas, não bloqueia
-                if (!_hasLines) return false;
-
-                return _allLinesMarked;
-
-            } catch (error) {
-                log.error({
-                    title: 'shouldSkipBuyerAssignment - Error processing',
-                    details: error
-                });
+            if (_flag !== true && _flag !== 'T') {
                 return false;
             }
         }
+
+        return true;
+
+    } catch (error) {
+        log.error({
+            title: 'shouldSkipBuyerAssignment - Error processing',
+            details: error
+        });
+        return false;
+    }
+}
 
         return {
             readData: readData,
