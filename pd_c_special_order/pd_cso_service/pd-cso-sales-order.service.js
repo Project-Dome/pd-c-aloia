@@ -48,8 +48,8 @@ define([
         salesRep: { name: 'salesrep' },
         memo: { name: 'memo' },
         urgencyOrder: { name: 'custbody_aae_urgency_order', type: 'list' },
-        custPoReceipt: { name: 'custbody_aae_cust_po_receipt' }
-
+        custPoReceipt: { name: 'custbody_aae_cust_po_receipt' },
+        buyer: { name: 'custbody_aae_buyer', type: 'list' }
     };
 
     const ITEM_SUBLIST_ID = 'item';
