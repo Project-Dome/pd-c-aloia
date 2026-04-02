@@ -201,6 +201,7 @@ define(
                 _purchaseRequisitionData[FIELDS.location.name] = options.location;
                 _purchaseRequisitionData[FIELDS.salesOrder.name] = options.id;
                 _purchaseRequisitionData[FIELDS.approvalStatus.name] = APPROVAL_STATUS;
+                _purchaseRequisitionData[FIELDS.buyer.name] = options.buyer;
 
                 // urgência: só setar se houver valor (evita INVALID_FLD_VALUE null)
                 if (options.urgencyOrder !== null && options.urgencyOrder !== undefined && options.urgencyOrder !== '') {
