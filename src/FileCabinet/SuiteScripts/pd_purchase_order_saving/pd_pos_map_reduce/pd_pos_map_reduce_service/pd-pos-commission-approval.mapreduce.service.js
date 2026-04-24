@@ -45,6 +45,8 @@ define(
             function buildQuery() {
                 const _queryString = [
                     `SELECT
+                        MAX(tl.netamount * -1) as invoiceAmount,
+                        MAX(e.custentity_aae_comission_rates) as commissionRate,
                         tl.custcol_aae_purchaseorder as purchaseOrderId,
                         transaction.id as invoiceId,
                         vendorBillLine.transaction as vendorBillId,
@@ -56,6 +58,7 @@ define(
                         AND mainline = 'F'
                         AND taxline = 'F'
                         AND tl.custcol_aae_purchaseorder IS NOT NULL
+                        INNER JOIN employee as e on e.id = tl.custcol_aae_buyer_purchase_order
                         INNER JOIN transactionline as vendorBillLine ON vendorBillLine.createdfrom = tl.custcol_aae_purchaseorder
                         AND vendorBillLine.mainline = 'F'
                         AND vendorBillLine.taxline = 'F'
@@ -68,6 +71,7 @@ define(
                         transaction.status = 'CustInvc:B'
                         AND transaction.recordtype = 'invoice'
                         AND aps.id IS NULL
+                        AND transaction.id = 19069
                     GROUP BY
                         tl.custcol_aae_purchaseorder,
                         transaction.id,
@@ -93,8 +97,6 @@ define(
                 const _optionsData = JSON.parse(context.value);
                 log.audit({ title: 'Key', details: `${_optionsData.invoiceid}&&${_optionsData.buyer}` });
 
-                // throw "Testing"
-
                 context.write({
                     key: `${_optionsData.invoiceid}&&${_optionsData.buyer}`,
                     value: _optionsData
@@ -106,30 +108,42 @@ define(
 
         function reduce(context) {
             try {
-                let _totalSaving = 0;
+                let _commissionValue = 0;
+                let _saleValue = 0;
+                let _purchaseValue = 0;
+                let _finalProfit = 0;
+
                 let _invoiceData = JSON.parse(context.values[0]);
+
+                log.audit({ title: "_invoiceData", details: _invoiceData });
 
                 context.values.forEach(commissionApprovalData => {
                     const _optionsData = JSON.parse(commissionApprovalData);
-                    log.audit({ title: 'Data reduce', details: _optionsData });
 
                     const vendorBillLines = vendor_bill_service.getLinesByTransactionIds(_optionsData.vendorbillid);
                     log.audit({ title: 'vendorBillLines', details: vendorBillLines });
 
-                    _totalSaving += mapSavingTotal(vendorBillLines, _optionsData);
-                    log.audit({ title: '_totalSaving for each', details: _totalSaving });
+                    const totalList = mapTotal(vendorBillLines, _optionsData);
+
+                    _saleValue += _optionsData.invoiceamount;
+                    _commissionValue += totalList.commissionValue;
+                    _purchaseValue += totalList.purchaseValue;
                 });
 
-                log.audit({ title: '_totalSaving', details: _totalSaving });
+                _finalProfit = _saleValue - _purchaseValue;
 
                 const approvalCommissionRecord = commission_approval_service.create();
                 commission_approval_service.set({
                     record: approvalCommissionRecord,
                     data: {
                         transaction: _invoiceData.vendorbillid,
-                        status: status_commission_service.STATUS_COMMISSION.PENDING,
-                        amountValue: _totalSaving,
-                        buyer: _invoiceData.buyer
+                        status: _commissionValue > 0 ? status_commission_service.STATUS_COMMISSION.PENDING : status_commission_service.STATUS_COMMISSION.APPROVED,
+                        amountValue: _commissionValue > 0 ? _commissionValue : 0,
+                        buyer: _invoiceData.buyer,
+                        saleValue: _saleValue,
+                        finalProfit: _finalProfit,
+                        purchaseValue: _purchaseValue,
+                        buyerCommission: _invoiceData.commissionrate
                     }
                 });
                 commission_approval_service.save(approvalCommissionRecord);
@@ -137,16 +151,24 @@ define(
                 log.error('Exceptions reduce', e);
             }
         }
-        function mapSavingTotal(vendorBillLines, invoiceData) {
+
+        function mapTotal(vendorBillLines, invoiceData) {
             const filteredLines = vendorBillLines.filter(({ buyer, lineReference }) =>
                 invoiceData.buyer == buyer && invoiceData.linereference == lineReference
             );
 
-            const totalSaving = filteredLines.reduce((sum, { amount }) => {
-                return sum + parseFloat(amount || 0);
-            }, 0);
+            let commissionValue = 0;
+            let purchaseValue = 0;
 
-            return totalSaving;
+            filteredLines.forEach(function (lineData) {
+                commissionValue += parseFloat(lineData.amount || 0);
+                purchaseValue += parseFloat(lineData.total || 0);
+            });
+
+            return {
+                commissionValue: commissionValue,
+                purchaseValue: purchaseValue
+            };
         }
 
         return {

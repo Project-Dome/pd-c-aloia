@@ -23,11 +23,11 @@ define(
 
         const FIELDS = {
             id: { name: 'internalid' },
-            status: { name: 'status' },
-            entity: { name: 'entity', type: 'list' },
+            // status: { name: 'status' },
+            // entity: { name: 'entity', type: 'list' },
             mainLine: { name: 'mainline', onlyFilter: true },
-            tranDate: { name: 'trandate' },
-            dueDate: { name: 'duedate' },
+            // tranDate: { name: 'trandate' },
+            // dueDate: { name: 'duedate' }
         };
 
         const ITEM_SUBLIST_ID = 'item';
@@ -99,7 +99,9 @@ define(
                 query: search_util
                     .where(search_util.query(FIELDS.id, "anyof", transactionIds))
                     // .and(search_util.query(FIELDS.status, "anyof", [STATUS.open, STATUS.paidFull]))
+
                     .and(search_util.query(FIELDS.mainLine, "is", "F"))
+                    .and(search_util.query(MERGED_FIELDS.appliedToRecordType, "startswith", "purchaseorder"))
             });
 
             return _vendorBillLines;

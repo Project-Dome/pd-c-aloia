@@ -36,7 +36,12 @@ define(
             // salesAdm: { name: 'custrecord_pd_pos_sales_admin' },
             vendorBill: { name: 'custrecord_pd_pos_pas_vendor_bill' },
             amountValue: { name: 'custrecord_pd_pos_pas_commission_amount' },
-            vendorEmployee: { name: 'custrecord_pd_pos_pas_vendor', type: 'list' }
+            vendorEmployee: { name: 'custrecord_pd_pos_pas_vendor', type: 'list' },
+
+            saleValue: { name: 'custrecord_pd_pos_pas_sale_value' },
+            finalProfit: { name: 'custrecord_pd_pos_pas_final_profit' },
+            purchaseValue: { name: 'custrecord_pd_pos_pas_purchase_value' },
+            buyerCommission: { name: 'custrecord_pd_pos_pas_buyer_commission' }
         };
 
         function getBy(options) {
@@ -136,6 +141,11 @@ define(
             approvalCommissionData[FIELDS.amountValue.name] = options?.data?.amountValue;
             approvalCommissionData[FIELDS.vendorEmployee.name] = options?.data?.vendorEmployee;
             approvalCommissionData[FIELDS.buyer.name] = options?.data?.buyer;
+
+            approvalCommissionData[FIELDS.saleValue.name] = options?.data?.saleValue;
+            approvalCommissionData[FIELDS.finalProfit.name] = options?.data?.finalProfit;
+            approvalCommissionData[FIELDS.purchaseValue.name] = options?.data?.purchaseValue;
+            approvalCommissionData[FIELDS.buyerCommission.name] = options?.data?.buyerCommission;
 
             return record_util
                 .handler(options.record)
