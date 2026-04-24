@@ -82,19 +82,17 @@ define(
                     transactionId: _optionsData.invoiceid
                 })
 
-                log.audit({
-                    title: 'Reduce Data', details: {
-                        _invoiceDataBySearch: _invoiceDataBySearch
-                    }
-                });
-
                 const approvalCommissionRecord = commission_approval_service.create();
                 commission_approval_service.set({
                     record: approvalCommissionRecord,
                     data: {
                         transaction: _optionsData.invoiceid,
                         status: status_commission_service.STATUS_COMMISSION.PENDING,
-                        amountValue: parseFloat(_invoiceDataBySearch.commissionTotal)
+                        amountValue: parseFloat(_invoiceDataBySearch.commissionTotal),
+                        purchaseValue: _invoiceDataBySearch.purchaseValue,
+                        saleValue: _invoiceDataBySearch.salesValue,
+                        finalProfit: _invoiceDataBySearch.finalProfit,
+                        commission: _invoiceDataBySearch.invoiceData[0].customerCommissionPercent
                     }
                 });
                 commission_approval_service.save(approvalCommissionRecord);

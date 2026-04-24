@@ -16,7 +16,6 @@ define(
 
         invoice_service
     ) {
-
         function afterSubmit(context) {
             if (context.type !== context.UserEventType.CREATE &&
                 context.type !== context.UserEventType.EDIT &&
@@ -32,7 +31,7 @@ define(
                 by: 'transactionId',
                 transactionId: invoiceId
             })
-            log.audit({ title: '_invoiceData', details: _invoiceData });
+            log.audit({ title: '_invoiceData', details: _invoiceData.salesValue });
 
             const isInValidUSDCommission = parseFloat(_invoiceData.commissionTotal) == parseFloat(0)
             if (isInValidUSDCommission) {
@@ -47,7 +46,6 @@ define(
             // Só cria se a fatura estiver totalmente paga
             if (amountRemaining === 0) {
 
-                // 🔎 Verificar se já existe um registro vinculado
                 var existingSearch = search.create({
                     type: 'customrecord_pd_ccr_approval_comission',
                     filters: [
@@ -60,12 +58,10 @@ define(
 
                 if (exists && exists.length > 0) {
                     log.audit('Commission Record Already Exists', 'Invoice ID: ' + invoiceId);
-                    return; // Já existe, não cria novamente
+                    return;
                 }
 
-
-                // Cria o registro customizado
-                var customRec = record.create({
+                let customRec = record.create({
                     type: 'customrecord_pd_ccr_approval_comission'
                 });
 
@@ -79,10 +75,26 @@ define(
                     value: parseFloat(_invoiceData.commissionTotal)
                 });
 
-                var recId = customRec.save();
+
+                customRec.setValue({
+                    fieldId: 'custrecord_pd_ccr_po_value',
+                    value: _invoiceData.purchaseValue
+                });
+                customRec.setValue({
+                    fieldId: 'custrecord_pd_ccr_sale_value',
+                    value: _invoiceData.salesValue
+                });
+                customRec.setValue({
+                    fieldId: 'custrecord_pd_ccr_final_profit',
+                    value: _invoiceData.finalProfit 
+                });
+                customRec.setValue({
+                    fieldId: 'custrecord_pd_ccr_seller_commission',
+                    value: _invoiceData.invoiceData[0].customerCommissionPercent
+                });
+
+                const recId = customRec.save();
                 log.audit('Commission Record Created', 'Internal ID: ' + recId);
-
-
             }
         }
 

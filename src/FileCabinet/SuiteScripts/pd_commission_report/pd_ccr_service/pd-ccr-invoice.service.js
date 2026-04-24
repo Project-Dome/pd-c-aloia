@@ -62,14 +62,18 @@ define(
             handlingCost: { name: "handlingcost" },
             totalCostUSD: { name: "formulacurrency", formula: FORMULA.totalCostUSD },
             costEAUSD: { name: "formulanumeric", formula: FORMULA.costEAUSD },
-            amount: { name: "amount" },
-            operationalProfitUSD: { name: "formulacurrency", formula: FORMULA.operationalProfitUSD },
             percent: { name: "formulapercent", formula: FORMULA.percent },
             applyingTransaction: { name: "applyingtransaction" },
+
+            amount: { name: "amount" },
+            finalCostPO: { name: "custcol_aae_final_cost_po" },
+            commissionRate: { name: "custentity_aae_comission_rates", join: "customer" },
+            customerCommissionPercent: { name: "custentity_aae_comission_rates", join: "customer" },
+            operationalProfitUSD: { name: "formulacurrency", formula: FORMULA.operationalProfitUSD },
+
             paidByCustomerOn: { name: "trandate", join: "applyingTransaction" },
             salesCommission: { name: "formuladate", formula: FORMULA.salesCommission },
             commission: { name: "salesrep" },
-            customerCommissionPercent: { name: "custentity_aae_comission_rates", join: "customer" },
             usdCommission: { name: "formulacurrency", formula: FORMULA.usdCommission },
             type: { name: "type", onlyFilter: true },
             mainLine: { name: "mainline", onlyFilter: true },
@@ -84,6 +88,9 @@ define(
 
             if (options.by == 'transactionId') {
                 let commissionTotal = 0;
+                let purchaseValue = 0;
+                let salesValue = 0;
+                let finalProfit = 0;
 
                 let invoice = search_util.all({
                     type: TYPE,
@@ -97,21 +104,38 @@ define(
                         .and(search_util.query(FIELDS.shipping, 'is', "F"))
                         .and(search_util.query(FIELDS.poTransaction, 'noneof', "@NONE@"))
                         // .and(search_util.query(FIELDS.status, 'anyof', "3"))
-                        .and(search_util.query(FIELDS.transactionId, 'anyof', options.transactionId)),
-                    each: function (data) {
-                        let _hasUSDComission = !isNullOrEmpty(data.usdCommission);
-                        if (!_hasUSDComission) return;
-
-                        commissionTotal += parseFloat(data.usdCommission)
-                    }
+                        .and(search_util.query(FIELDS.transactionId, 'anyof', options.transactionId))
                 })
 
+                invoice.forEach(data => {
+                    if (!isNullOrEmpty(data.finalCostPO))
+                        purchaseValue += parseFloat(data.finalCostPO);
 
-                log.audit("invoice", invoice);
+                    if (!isNullOrEmpty(data.amount))
+                        salesValue += parseFloat(data.amount);
+
+                    let _hasUSDComission = !isNullOrEmpty(data.usdCommission);
+                    if (!_hasUSDComission) return;
+
+                    commissionTotal += parseFloat(data.usdCommission);
+                });
+
+                log.audit(
+                    "invoice",
+                    {
+                        commissionTotal: commissionTotal,
+                        purchaseValue: purchaseValue,
+                        salesValue: salesValue,
+                        finalProfit: finalProfit
+                    }
+                );
 
                 return {
-                    invoicedata: invoice,
-                    commissionTotal: commissionTotal
+                    invoiceData: invoice,
+                    commissionTotal: commissionTotal,
+                    purchaseValue: purchaseValue,
+                    salesValue: salesValue,
+                    finalProfit: salesValue - purchaseValue
                 }
             }
         }

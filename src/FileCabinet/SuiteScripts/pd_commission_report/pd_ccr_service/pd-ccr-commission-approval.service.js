@@ -32,7 +32,12 @@ define(
             salesAdmin: { name: 'custrecord_pd_ccr_sales_admin' },
             vendorBill: { name: 'custrecord_pd_ccr_vendor_bill_linked' },
             amountValue: { name: 'custrecord_pd_ccr_amount_value' },
-            vendorEmployee: { name: 'custrecord_pd_ccr_vendor_employee', type: 'list' }
+            vendorEmployee: { name: 'custrecord_pd_ccr_vendor_employee', type: 'list' },
+
+            purchaseValue: { name: 'custrecord_pd_ccr_po_value' },
+            saleValue: { name: 'custrecord_pd_ccr_sale_value' },
+            finalProfit: { name: 'custrecord_pd_ccr_final_profit' },
+            commission: { name: 'custrecord_pd_ccr_seller_commission' },
         };
 
         function readData(vendorBillRecord) {
@@ -56,6 +61,16 @@ define(
             approvalCommissionData[FIELDS.vendorBill.name] = options?.data?.vendorBill;
             approvalCommissionData[FIELDS.amountValue.name] = options?.data?.amountValue;
             approvalCommissionData[FIELDS.vendorEmployee.name] = options?.data?.vendorEmployee;
+
+
+            approvalCommissionData[FIELDS.purchaseValue.name] = options?.data?.purchaseValue;
+            approvalCommissionData[FIELDS.saleValue.name] = options?.data?.saleValue;
+            approvalCommissionData[FIELDS.finalProfit.name] = options?.data?.finalProfit;
+            approvalCommissionData[FIELDS.commission.name] = options?.data?.commission;
+
+            log.audit({ title: "approvalCommissionData", details: approvalCommissionData });
+
+            // throw "Testing Projetc Dome";
 
             return record_util
                 .handler(options.record)
